@@ -3,6 +3,7 @@ import numpy as np
 import json
 from to_dxf import generar_dxf
 from os import sep, path, makedirs
+from shutil import rmtree
 
 pads = list()
 lienzo_xy = (1500, 1125)
@@ -73,11 +74,14 @@ def cargar_pads_desde_json(ruta_json):
         pads.append(pad)
     return pads
 
-############################################################################
+###################################################################################################
+#######################     
+#######################         MAIN
 if __name__ == "__main__":
     print("PROCESANDO...")
-    posiciones_x = list(set((0, 76, 150, 262, 326, 326, 450)))
-    posiciones_y = list(set((0, 76, 150, 262)))
+    
+    posiciones_x = [0, 50, 85, 120, 220, 320, 420]
+    posiciones_y = [0, 50, 85, 120]
 
     pads = cargar_pads_desde_json("pads.json")
 
@@ -98,6 +102,13 @@ if __name__ == "__main__":
     n_actives = len(p_actives)
 
     # SALIDA
+    if not path.exists("OUTPUT"):
+        makedirs("OUTPUT")
+    else:
+        print("Borrando el directorio 'OUTPUT'...")
+        rmtree("OUTPUT")
+        makedirs("OUTPUT")
+
     print("GENERANDO...")
     n_h = 0
     tools = []
@@ -137,8 +148,7 @@ if __name__ == "__main__":
                 imagen = cv2.putText(imagen, "(0, 0)",(centro[0]-20, centro[1]+6), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (40, 40, 40), 1, cv2.LINE_AA)
 
             # GENRAR SALIDA
-            if not path.exists("OUTPUT"):
-                makedirs("OUTPUT")
+
             img_peq = cv2.resize(imagen, FormatoSalida)
             filename = f"{n_h}_Herramienta_{x}-{y}"
 
