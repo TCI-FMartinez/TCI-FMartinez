@@ -4,35 +4,17 @@ import numpy as np
 from os import sep
 
 formato = (800, 600)
+filename = "tool01_salida_contornos"
 
 my_list = []
 _puntos = []
 _ventosas = []
 _circulos = []
 
-""" EJEMPLO
-ventosas = [
-      {
-    "diameter": 37,
-    "position": [
-      0,
-      0
-    ],
-    "force": 16.309887869520896,
-    "type": 1
-  },
-]
-"""
-
-"""
-contorno = {
-    "contour": [(-13, 97), (13, 97), (160, 21), (160, -21), (13, -97), (-13, -97), (-160, -21), (-160, 21)]
-}
-"""
 
 def Lienzo(x_px=800, y_px=600, grey_n=255):
     """Creación de una imagen con una matríz
-       de x filas por y columnas y 3 canales (b,g,r).
+       de 'x' filas por 'y' columnas con 3 canales (b,g,r).
     Esta matriz se multiplica por 255 para hacerla blanca."""
     if x_px == 0: x_px = 800
     if y_px == 0: y_px = 600
@@ -74,7 +56,7 @@ for i in _ventosas:
 my_list.append(_ventosas)
 my_list.append(contorno)
 
-with open(f"HERRAMIENTA01{sep}tool01_salida_contornos.json", "w") as f:
+with open(f"HERRAMIENTA01{sep}{filename}.json", "w") as f:
 
     json.dump(my_list, f, indent=4)
     f.close()
@@ -99,4 +81,4 @@ puntos_array = np.array(_puntos)
 cv2.drawContours(imagen, [puntos_array], -1, (0, 0, 0), 2)
 cv2.imshow("HERRAMIENTA", imagen)
 cv2.waitKey(5000)
-cv2.imwrite(f"HERRAMIENTA01{sep}tool01.png", imagen)
+cv2.imwrite(f"HERRAMIENTA01{sep}{filename}.png", imagen)

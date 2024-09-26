@@ -1,4 +1,5 @@
 import json
+import numpy as np
 
 def cargar_pads_desde_json(ruta_json):
     """Lee el archivo JSON y devuelve los datos como un diccionario."""

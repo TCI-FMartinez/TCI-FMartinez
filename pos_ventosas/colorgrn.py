@@ -32,7 +32,7 @@ def hsl_to_rgb(h, s, l):
 def rgb_to_hex(r, g, b):
     return '#{:02x}{:02x}{:02x}'.format(r, g, b)
 
-def generar_paleta_proxima_hex(tono_inicial, num_colores, proximidad=30, aleatorio=False):
+def generar_paleta_proxima_hex(tono_inicial, num_colores, proximidad=3, aleatorio=False):
     """
     Genera una paleta de colores basados en un tono inicial en la rueda de color HSL.
 

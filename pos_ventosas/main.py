@@ -132,7 +132,7 @@ if __name__ == "__main__":
             id_h = {"tool":n_h}
             tools.append((id_h, pads_data))
 
-            # DIBUJADO
+            ############################################################# DIBUJADO
             texto1= f"Herramienta:{n_h} X:{x} Y:{y}"
             imagen = cv2.putText(imagen, texto1,(10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (50, 50, 50), 1, cv2.LINE_AA)
             centro = (0 + int(lienzo_xy[0]/2), 0 + int(lienzo_xy[1]/2))
@@ -147,7 +147,7 @@ if __name__ == "__main__":
                 #centro
                 imagen = cv2.putText(imagen, "(0, 0)",(centro[0]-20, centro[1]+6), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (40, 40, 40), 1, cv2.LINE_AA)
 
-            # GENRAR SALIDA
+            ############################################################# GENERAR SALIDA
 
             img_peq = cv2.resize(imagen, FormatoSalida)
             filename = f"{n_h}_Herramienta_{x}-{y}"
@@ -165,5 +165,7 @@ if __name__ == "__main__":
     # Guardar en un archivo JSON
     with open(f"OUTPUT{sep}tools_data.json", "w") as f:
         f.write(json_data)
+
+    f.close()
 
 print("FINALIZADO")
