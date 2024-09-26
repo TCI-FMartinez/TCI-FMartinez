@@ -1,25 +1,25 @@
 {
   "pads": [
-    {"id": 1, "posX": 0, "posY": 0, "type": 2, "force": 10.0, "is_active": false, "diameter": 36, "dependence": [1, 1]},
-    {"id": 2, "posX": -100, "posY": 100, "type": 2, "force": 10.0, "is_active": false, "diameter": 36, "dependence": [1, 1]},
-    {"id": 3, "posX": 100, "posY": -100, "type": 2, "force": 10.0, "is_active": false, "diameter": 36, "dependence": [1, 1]},
-    {"id": 4, "posX": -100, "posY": -100, "type": 2, "force": 10.0, "is_active": false, "diameter": 36, "dependence": [1, 1]},
-    {"id": 5, "posX": 100, "posY": 100, "type": 2, "force": 10.0, "is_active": false, "diameter": 36, "dependence": [1, 1]},
-    {"id": 6, "posX": 0, "posY": 100, "type": 2, "force": 10.0, "is_active": false, "diameter": 36, "dependence": [1, 1]},
+    {"id": 1, "posX": 0, "posY": 0, "type": 1, "force": 10.0, "is_active": false, "diameter": 36, "dependence": [1, 1]},
+    {"id": 2, "posX": -100, "posY": 100, "type": 1, "force": 10.0, "is_active": false, "diameter": 36, "dependence": [1, 1]},
+    {"id": 3, "posX": 100, "posY": -100, "type": 1, "force": 10.0, "is_active": false, "diameter": 36, "dependence": [1, 1]},
+    {"id": 4, "posX": -100, "posY": -100, "type": 1, "force": 10.0, "is_active": false, "diameter": 36, "dependence": [1, 1]},
+    {"id": 5, "posX": 100, "posY": 100, "type": 1, "force": 10.0, "is_active": false, "diameter": 36, "dependence": [1, 1]},
+    {"id": 6, "posX": 0, "posY": 100, "type": 1, "force": 10.0, "is_active": false, "diameter": 36, "dependence": [1, 1]},
     
-    {"id": 7, "posX": -50, "posY": 50, "type": 1, "force": 2.5, "is_active": false, "diameter": 50, "dependence": [1, 1]},
-    {"id": 8, "posX": 50, "posY": -50, "type": 1, "force": 2.5, "is_active": false, "diameter": 50, "dependence": [1, 1]},
-    {"id": 9, "posX": -50, "posY": -50, "type": 1, "force": 7.0, "is_active": false, "diameter": 80, "dependence": [1, 1]},
-    {"id": 10, "posX": 50, "posY": 50, "type": 1, "force": 7.0, "is_active": false, "diameter": 80, "dependence": [1, 1]},
-    {"id": 11, "posX": -100, "posY": 50, "type": 1, "force": 1.0, "is_active": false, "diameter": 32, "dependence": [1, 1]},
-    {"id": 12, "posX": -100, "posY": 0, "type": 1, "force": 1.0, "is_active": false, "diameter": 32, "dependence": [1, 1]},
-    {"id": 13, "posX": 100, "posY": 0, "type": 1, "force": 1.0, "is_active": false, "diameter": 32, "dependence": [1, 1]},
-    {"id": 14, "posX": 100, "posY": -50, "type": 1, "force": 1.0, "is_active": false, "diameter": 32, "dependence": [1, 1]},
-    {"id": 15, "posX": 50, "posY": -100, "type": 1, "force": 1.0, "is_active": false, "diameter": 32, "dependence": [1, 1]},
-    {"id": 16, "posX": 0, "posY": -100, "type": 1, "force": 1.0, "is_active": false, "diameter": 32, "dependence": [1, 1]},
+    {"id": 7, "posX": -50, "posY": 50, "type": 2, "force": 2.5, "is_active": false, "diameter": 50, "dependence": [1, 1]},
+    {"id": 8, "posX": 50, "posY": -50, "type": 2, "force": 2.5, "is_active": false, "diameter": 50, "dependence": [1, 1]},
+    {"id": 9, "posX": -50, "posY": -50, "type": 2, "force": 7.0, "is_active": false, "diameter": 80, "dependence": [1, 1]},
+    {"id": 10, "posX": 50, "posY": 50, "type": 2, "force": 7.0, "is_active": false, "diameter": 80, "dependence": [1, 1]},
+    {"id": 11, "posX": -100, "posY": 50, "type": 2, "force": 1.0, "is_active": false, "diameter": 32, "dependence": [1, 1]},
+    {"id": 12, "posX": -100, "posY": 0, "type": 2, "force": 1.0, "is_active": false, "diameter": 32, "dependence": [1, 1]},
+    {"id": 13, "posX": 100, "posY": 0, "type": 2, "force": 1.0, "is_active": false, "diameter": 32, "dependence": [1, 1]},
+    {"id": 14, "posX": 100, "posY": -50, "type": 2, "force": 1.0, "is_active": false, "diameter": 32, "dependence": [1, 1]},
+    {"id": 15, "posX": 50, "posY": -100, "type": 2, "force": 1.0, "is_active": false, "diameter": 32, "dependence": [1, 1]},
+    {"id": 16, "posX": 0, "posY": -100, "type": 2, "force": 1.0, "is_active": false, "diameter": 32, "dependence": [1, 1]},
 
-    {"id": 17, "posX": 100, "posY": 150, "type": 1, "force": 1.0, "is_active": false, "diameter": 32, "dependence": [1, 1]},
-    {"id": 18, "posX": 50, "posY": 150, "type": 1, "force": 2.5, "is_active": false, "diameter": 50, "dependence": [1, 1]},
-    {"id": 19, "posX": -50, "posY": 150, "type": 1, "force": 7.0, "is_active": false, "diameter": 80, "dependence": [1, 1]}
+    {"id": 17, "posX": 100, "posY": 150, "type": 2, "force": 1.0, "is_active": false, "diameter": 32, "dependence": [1, 1]},
+    {"id": 18, "posX": 50, "posY": 150, "type": 2, "force": 2.5, "is_active": false, "diameter": 50, "dependence": [1, 1]},
+    {"id": 19, "posX": -50, "posY": 150, "type": 2, "force": 7.0, "is_active": false, "diameter": 80, "dependence": [1, 1]}
   ]
 }
