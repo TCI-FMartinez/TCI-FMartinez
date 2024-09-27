@@ -8,6 +8,8 @@ from shutil import rmtree
 pads = list()
 lienzo_xy = (1500, 1125)
 FormatoSalida = (800, 600)
+ruta_pos_json = f"HERRAMIENTA01{sep}posiciones.json"
+ruta_pads_json = f"HERRAMIENTA01{sep}tool_M_entrada_ventosas.json"
 
 class Pad:
     def __init__ (self, id:int=0, posX:int=0, posY:int=0, _type:int=1, force:float=0.0,
@@ -60,6 +62,7 @@ def cargar_pads_desde_json(ruta_json):
     with open(ruta_json, 'r') as archivo:
         data = json.load(archivo)
     pads = []
+    geometry = []
     for pad_data in data['pads']:
         pad = Pad(
             id=pad_data['id'],
@@ -72,18 +75,47 @@ def cargar_pads_desde_json(ruta_json):
             dependence=tuple(pad_data['dependence'])
         )
         pads.append(pad)
-    return pads
+    for point in data["contorno"]:
+        geometry.append(point)
+    return pads, geometry
+
+def cargar_posiciones_desde_json(ruta_json="posiciones.json"):
+    """Lee el fichero posiciones.json y devuelbe una lista con dos listas X Y"""
+    posX = list()
+    posY = list()
+    with open(ruta_json, 'r') as archivo:
+        data = json.load(archivo)
+        for xpos in data["posX"]:
+            posX.append(xpos)
+        for ypos in data["posY"]:
+            posY.append(ypos)
+    return posX[0], posY[0]
+
 
 ###################################################################################################
 #######################     
 #######################         MAIN
 if __name__ == "__main__":
     print("PROCESANDO...")
-    
-    posiciones_x = [-520, -420, -320, -220, -120, -85, 0, 50, 85, 120, 220, 320, 420, 520]
-    posiciones_y = [-400, -300, -200, -100, 0, 100, 200, 300, 350]
+    _puntos = []
+    my_list = []
 
-    pads = cargar_pads_desde_json("pads.json")
+    centro = (0 + int(lienzo_xy[0]/2), 0 + int(lienzo_xy[1]/2))
+    
+    posiciones_x, posiciones_y = cargar_posiciones_desde_json(ruta_pos_json)
+
+    #posiciones_x = [-520, -420, -320, -220, -120, -85, 0, 50, 85, 120, 220, 320, 420, 520]
+    #posiciones_y = [-400, -300, -200, -100, 0, 100, 200, 300, 350]
+
+    pads, _geometry = cargar_pads_desde_json(ruta_pads_json)
+
+    for p in _geometry:
+        x = p[0]+lienzo_xy[0]/2
+        y = p[1]+lienzo_xy[1]/2
+        p_c = (int(x), int(y))
+        _puntos.append(p_c)
+
+    puntos_array = np.array(_puntos)
 
     # Activar pads
     #pads[7].activate()  # pad08
@@ -126,16 +158,20 @@ if __name__ == "__main__":
                     "id": p.id,
                     "diameter": p.diameter,
                     "position": [p.pos[0], p.pos[1]],
-                    "force": p.force
+                    "force": p.force,
+                    "type": p._type
                 }
                 pads_data.append(pad_data)
-            id_h = {"tool":n_h}
-            tools.append((id_h, pads_data))
+
+            tools.append((n_h, pads_data))
+            n_h +=1
 
             ############################################################# DIBUJADO
             texto1= f"Herramienta:{n_h} X:{x} Y:{y}"
-            imagen = cv2.putText(imagen, texto1,(10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (50, 50, 50), 1, cv2.LINE_AA)
-            centro = (0 + int(lienzo_xy[0]/2), 0 + int(lienzo_xy[1]/2))
+            imagen = cv2.putText(imagen, texto1,(20, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.85, (50, 50, 50), 1, cv2.LINE_AA)
+
+            cv2.drawContours(imagen, [puntos_array], -1, (200, 200, 200), -1)
+            cv2.drawContours(imagen, [puntos_array], -1, (150, 150, 150), 2)
 
             for p in pads:
                 pos_p = (int(p.new_pos[0]+centro[0]), lienzo_xy[1] + invertY(int(p.new_pos[1]+centro[1])))
@@ -159,6 +195,22 @@ if __name__ == "__main__":
             generar_dxf(pads, f"OUTPUT{sep}{filename}.dxf")
             n_h +=1
 
+
+    #####################################################################
+    print("\n>> Generando JSON...")
+
+    #my_list.append(_ventosas)          # sin etiquetas
+    #my_list.append(contorno)           # sin etiquetas
+    my_list.append(ventosas_dict)       # con etiquetas
+    my_list.append(contorno_dict)       # con etiquetas
+
+    for tool in tools:
+        with open(f"HERRAMIENTA01{sep}{filename}.json", "w") as f:
+            json.dump(my_list, f, indent=4)
+            f.close()
+
+
+    # >>>>>>>>> OBSOLETO <<<<<<<<<<<<
     # Convertir la lista de diccionarios a JSON
     json_data = json.dumps({"tools": tools}, indent=4)
 

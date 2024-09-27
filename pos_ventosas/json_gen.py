@@ -35,12 +35,11 @@ def colorize(_type:int=0)->tuple:
 with open(f"HERRAMIENTA01{sep}tool01_entrada_ventosas.json") as v:
     herramienta_ = json.load(v)
 
-
 ventosas = herramienta_["ventosas"]
 contorno = herramienta_["contorno"]
 
 ventosas_dict = dict()
-ventosas_dict["tool"] = ventosas
+ventosas_dict["tool_01"] = ventosas
 
 contorno_dict = dict()
 contorno_dict["geometry"] = contorno
@@ -67,6 +66,7 @@ for i in _ventosas:
     print(i)
 
 #####################################################################
+print("\n>> Generando JSON...")
 
 #my_list.append(_ventosas)          # sin etiquetas
 #my_list.append(contorno)           # sin etiquetas
@@ -88,7 +88,6 @@ for p in contorno:
     p_c = (int(x), int(y))
     _puntos.append(p_c)
 
-
 for c in _circulos:
     #print(">>>>>>>>>>>>>>> circulo=", c[0], c[1])
     #print(">>>>>>>>>>>>>>> Type=", c[2])
@@ -96,7 +95,6 @@ for c in _circulos:
     cv2.circle(imagen, (int(c[0][0]),int(c[0][1])), int(c[1]/2), (0,0,0), 2)
 
 puntos_array = np.array(_puntos)
-
 
 #cv2.drawContours(imagen, [contorno["contour"]], -1, (0, 0, 0), 2)
 cv2.drawContours(imagen, [puntos_array], -1, (0, 0, 0), 2)

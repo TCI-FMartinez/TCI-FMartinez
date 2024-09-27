@@ -1,13 +1,21 @@
 import json
+from os import sep
 import numpy as np
 
-def cargar_pads_desde_json(ruta_json):
-    """Lee el archivo JSON y devuelve los datos como un diccionario."""
+ruta_pos_json = f"HERRAMIENTA01{sep}posiciones.json"
+
+def cargar_posiciones_desde_json(ruta_json="posiciones.json"):
+    """Lee el fichero posiciones.json y devuelbe una lista con dos listas X Y"""
+    posX = list()
+    posY = list()
     with open(ruta_json, 'r') as archivo:
         data = json.load(archivo)
-    return data['pads']
+        for xpos in data["posX"]:
+            posX.append(xpos)
+        for ypos in data["posY"]:
+            posY.append(ypos)
+    return posX[0], posY[0]
 
-pads = cargar_pads_desde_json("pads.json")
+posiciones = cargar_posiciones_desde_json(ruta_pos_json)
 
-for pad in pads:
-    print(pad)
+print(posiciones)
