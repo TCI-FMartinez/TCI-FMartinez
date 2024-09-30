@@ -1,3 +1,8 @@
+#########>>>>>>>>>>>>>>>> GENERADOR DE HERRAMIENTAS DE VENTOSAS <<<<<<<<<<<<<<<<<<<<<<<<<<###########
+
+#COMPILAR
+# pyinstaller --distpath DISTRO --collect-data palettable --onefile -n padstools main.py
+
 import cv2
 import numpy as np
 import json
@@ -59,8 +64,13 @@ def coloize(active:bool=False, _type:int=1):
 
 def cargar_pads_desde_json(ruta_json):
     """Lee el archivo JSON y devuelve los datos como un diccionario."""
-    with open(ruta_json, 'r') as archivo:
-        data = json.load(archivo)
+    try:
+        with open(ruta_json, 'r') as archivo:
+            data = json.load(archivo)
+    except Exception as e:
+        print(">> Error al cargar PADS desde json.")
+        print("Fichero esperado:", ruta_json)
+        print(e)
     pads = []
     geometry = []
     for pad_data in data['pads']:
@@ -83,12 +93,17 @@ def cargar_posiciones_desde_json(ruta_json="posiciones.json"):
     """Lee el fichero posiciones.json y devuelbe una lista con dos listas X Y"""
     posX = list()
     posY = list()
-    with open(ruta_json, 'r') as archivo:
-        data = json.load(archivo)
-        for xpos in data["posX"]:
-            posX.append(xpos)
-        for ypos in data["posY"]:
-            posY.append(ypos)
+    try:
+        with open(ruta_json, 'r') as archivo:
+            data = json.load(archivo)
+            for xpos in data["posX"]:
+                posX.append(xpos)
+            for ypos in data["posY"]:
+                posY.append(ypos)
+    except Exception as e:
+        print(">> Error al cargar posiciones desde json.")
+        print("Fichero esperado:", ruta_json)
+        print(e)            
     return posX[0], posY[0]
 
 
@@ -136,15 +151,18 @@ if __name__ == "__main__":
     # SALIDA
     if not path.exists("OUTPUT"):
         makedirs("OUTPUT")
+        makedirs(f"OUTPUT{sep}JPGS")
     else:
         print("Borrando el directorio 'OUTPUT'...")
         rmtree("OUTPUT")
         makedirs("OUTPUT")
+        makedirs(f"OUTPUT{sep}JPGS")
 
     print("GENERANDO...")
     n_h = 0
     tools = []
     pads_data = [] 
+    tool_tag = {"tool": 0}
 
     for y in posiciones_y:
         for x in posiciones_x:
@@ -162,13 +180,14 @@ if __name__ == "__main__":
                     "type": p._type
                 }
                 pads_data.append(pad_data)
+                tool_tag["tool"] = n_h
 
-            tools.append((n_h, pads_data))
-            n_h +=1
+            tools.append((tool_tag, pads_data))
+            
 
             ############################################################# DIBUJADO
             texto1= f"Herramienta:{n_h} X:{x} Y:{y}"
-            imagen = cv2.putText(imagen, texto1,(20, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.85, (50, 50, 50), 1, cv2.LINE_AA)
+            imagen = cv2.putText(imagen, texto1,(20, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (50, 50, 50), 1, cv2.LINE_AA)
 
             cv2.drawContours(imagen, [puntos_array], -1, (200, 200, 200), -1)
             cv2.drawContours(imagen, [puntos_array], -1, (150, 150, 150), 2)
@@ -186,31 +205,20 @@ if __name__ == "__main__":
             ############################################################# GENERAR SALIDA
 
             img_peq = cv2.resize(imagen, FormatoSalida)
-            filename = f"{n_h}_Herramienta_{x}-{y}"
+            filename = f"{n_h}_Herramienta_{x}_{y}"
 
             #cv2.imshow("VENTOSAS", img_peq)
             #cv2.waitKey()
-            cv2.imwrite(f"OUTPUT{sep}{filename}.png", img_peq)
+            #cv2.imwrite(f"OUTPUT{sep}{filename}.png", img_peq)
+            cv2.imwrite(f"OUTPUT{sep}JPGS{sep}herramienta {n_h}.jpg", img_peq)
 
             generar_dxf(pads, f"OUTPUT{sep}{filename}.dxf")
             n_h +=1
 
 
     #####################################################################
-    print("\n>> Generando JSON...")
+    print("\nGenerando JSON...")
 
-    #my_list.append(_ventosas)          # sin etiquetas
-    #my_list.append(contorno)           # sin etiquetas
-    my_list.append(ventosas_dict)       # con etiquetas
-    my_list.append(contorno_dict)       # con etiquetas
-
-    for tool in tools:
-        with open(f"HERRAMIENTA01{sep}{filename}.json", "w") as f:
-            json.dump(my_list, f, indent=4)
-            f.close()
-
-
-    # >>>>>>>>> OBSOLETO <<<<<<<<<<<<
     # Convertir la lista de diccionarios a JSON
     json_data = json.dumps({"tools": tools}, indent=4)
 
