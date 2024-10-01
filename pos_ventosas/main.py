@@ -1,6 +1,8 @@
 #########>>>>>>>>>>>>>>>> GENERADOR DE HERRAMIENTAS DE VENTOSAS <<<<<<<<<<<<<<<<<<<<<<<<<<###########
+# Created by: @F.Martinez
 
-#COMPILAR
+
+# COMPILAR
 # pyinstaller --distpath DISTRO --collect-data palettable --onefile -n padstools main.py
 
 import cv2
@@ -11,10 +13,10 @@ from os import sep, path, makedirs
 from shutil import rmtree
 
 pads = list()
-lienzo_xy = (1500, 1125)
-FormatoSalida = (800, 600)
-ruta_pos_json = f"HERRAMIENTA01{sep}posiciones.json"
-ruta_pads_json = f"HERRAMIENTA01{sep}tool_M_entrada_ventosas.json"
+LIENZO_XY = (1500, 1125)
+FORMATO_SALIDA = (800, 600)
+RUTA_POS_JSON = f"HERRAMIENTA01{sep}posiciones.json"
+RUTA_PADS_JSON = f"HERRAMIENTA01{sep}tool_M_entrada_ventosas.json"
 
 class Pad:
     def __init__ (self, id:int=0, posX:int=0, posY:int=0, _type:int=1, force:float=0.0,
@@ -36,6 +38,9 @@ class Pad:
         return False
     
     def move(self, movXY:tuple) -> tuple:
+        """Las dependencias indican cómo se moverán en 'X' e 'Y'.
+        Si el valor de la dependecia se multiplica por el avance.
+        Por lo que 0 no hay movimientos y negativos invierten."""
         self.new_pos = ((self.pos[0] + (movXY[0] * self.dependence[0])),
                         (self.pos[1] + (movXY[1] * self.dependence[1])))
         return self.new_pos
@@ -100,33 +105,36 @@ def cargar_posiciones_desde_json(ruta_json="posiciones.json"):
                 posX.append(xpos)
             for ypos in data["posY"]:
                 posY.append(ypos)
-    except Exception as e:
-        print(">> Error al cargar posiciones desde json.")
-        print("Fichero esperado:", ruta_json)
-        print(e)            
+
+    except FileNotFoundError as e:
+        print(f"Error: El archivo {ruta_json} no existe. Detalles: {e}")
+    except json.JSONDecodeError as e:
+        print(f"Error al decodificar JSON en el archivo {ruta_json}. Detalles: {e}")
+          
     return posX[0], posY[0]
 
 
 ###################################################################################################
 #######################     
 #######################         MAIN
+
 if __name__ == "__main__":
     print("PROCESANDO...")
     _puntos = []
     my_list = []
 
-    centro = (0 + int(lienzo_xy[0]/2), 0 + int(lienzo_xy[1]/2))
+    centro = (0 + int(LIENZO_XY[0]/2), 0 + int(LIENZO_XY[1]/2))
     
-    posiciones_x, posiciones_y = cargar_posiciones_desde_json(ruta_pos_json)
+    posiciones_x, posiciones_y = cargar_posiciones_desde_json(RUTA_POS_JSON)
 
     #posiciones_x = [-520, -420, -320, -220, -120, -85, 0, 50, 85, 120, 220, 320, 420, 520]
     #posiciones_y = [-400, -300, -200, -100, 0, 100, 200, 300, 350]
 
-    pads, _geometry = cargar_pads_desde_json(ruta_pads_json)
+    pads, _geometry = cargar_pads_desde_json(RUTA_PADS_JSON)
 
     for p in _geometry:
-        x = p[0]+lienzo_xy[0]/2
-        y = p[1]+lienzo_xy[1]/2
+        x = p[0]+LIENZO_XY[0]/2
+        y = p[1]+LIENZO_XY[1]/2
         p_c = (int(x), int(y))
         _puntos.append(p_c)
 
@@ -160,13 +168,14 @@ if __name__ == "__main__":
 
     print("GENERANDO...")
     n_h = 0
-    tools = []
-    pads_data = [] 
-    tool_tag = {"tool": 0}
-
+    tools_list = []
+    tools_dict = {}
+   
     for y in posiciones_y:
         for x in posiciones_x:
-            imagen = Lienzo(lienzo_xy[0], lienzo_xy[1], 255)
+            imagen = Lienzo(LIENZO_XY[0], LIENZO_XY[1], 255)
+            tool_tag = {"tool": n_h}
+            pads_data = []                                          # reiniciar aquí para cada nueva herramienta
             # DESPLAZAR PADS
             for p in pads:
                 p.move((x, y))  
@@ -180,11 +189,9 @@ if __name__ == "__main__":
                     "type": p._type
                 }
                 pads_data.append(pad_data)
-                tool_tag["tool"] = n_h
-
-            tools.append((tool_tag, pads_data))
             
-
+            tools_list.append((tool_tag, pads_data.copy()))
+            
             ############################################################# DIBUJADO
             texto1= f"Herramienta:{n_h} X:{x} Y:{y}"
             imagen = cv2.putText(imagen, texto1,(20, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (50, 50, 50), 1, cv2.LINE_AA)
@@ -193,7 +200,7 @@ if __name__ == "__main__":
             cv2.drawContours(imagen, [puntos_array], -1, (150, 150, 150), 2)
 
             for p in pads:
-                pos_p = (int(p.new_pos[0]+centro[0]), lienzo_xy[1] + invertY(int(p.new_pos[1]+centro[1])))
+                pos_p = (int(p.new_pos[0]+centro[0]), LIENZO_XY[1] + invertY(int(p.new_pos[1]+centro[1])))
                 txt_long = int(len(p.new_pos)*18)
                 imagen = cv2.circle(imagen, pos_p, int(p.diameter/2), coloize(p.is_active, p._type), -1)
                 imagen = cv2.circle(imagen, pos_p, int(p.diameter/2), (0,0,0), 2)    #borde exterior
@@ -204,7 +211,7 @@ if __name__ == "__main__":
 
             ############################################################# GENERAR SALIDA
 
-            img_peq = cv2.resize(imagen, FormatoSalida)
+            img_peq = cv2.resize(imagen, FORMATO_SALIDA)
             filename = f"{n_h}_Herramienta_{x}_{y}"
 
             #cv2.imshow("VENTOSAS", img_peq)
@@ -215,17 +222,15 @@ if __name__ == "__main__":
             generar_dxf(pads, f"OUTPUT{sep}{filename}.dxf")
             n_h +=1
 
-
     #####################################################################
-    print("\nGenerando JSON...")
+    print("Generando JSON...")
 
     # Convertir la lista de diccionarios a JSON
-    json_data = json.dumps({"tools": tools}, indent=4)
+    json_data = json.dumps({"tools": tools_list}, indent=4)
 
     # Guardar en un archivo JSON
     with open(f"OUTPUT{sep}tools_data.json", "w") as f:
         f.write(json_data)
 
-    f.close()
 
-print("FINALIZADO")
+print("\nFINALIZADO!!")
