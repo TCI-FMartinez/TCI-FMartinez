@@ -116,16 +116,6 @@
                     "type": 2
                 },
                 {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
-                    "type": 2
-                },
-                {
                     "id": 13,
                     "diameter": 80,
                     "position": [
@@ -630,16 +620,6 @@
                         0
                     ],
                     "force": 1.0,
-                    "type": 2
-                },
-                {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
                     "type": 2
                 },
                 {
@@ -1150,16 +1130,6 @@
                     "type": 2
                 },
                 {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
-                    "type": 2
-                },
-                {
                     "id": 13,
                     "diameter": 80,
                     "position": [
@@ -1664,16 +1634,6 @@
                         0
                     ],
                     "force": 1.0,
-                    "type": 2
-                },
-                {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
                     "type": 2
                 },
                 {
@@ -2184,16 +2144,6 @@
                     "type": 2
                 },
                 {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
-                    "type": 2
-                },
-                {
                     "id": 13,
                     "diameter": 80,
                     "position": [
@@ -2698,16 +2648,6 @@
                         0
                     ],
                     "force": 1.0,
-                    "type": 2
-                },
-                {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
                     "type": 2
                 },
                 {
@@ -3218,16 +3158,6 @@
                     "type": 2
                 },
                 {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
-                    "type": 2
-                },
-                {
                     "id": 13,
                     "diameter": 80,
                     "position": [
@@ -3732,16 +3662,6 @@
                         0
                     ],
                     "force": 1.0,
-                    "type": 2
-                },
-                {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
                     "type": 2
                 },
                 {
@@ -4252,16 +4172,6 @@
                     "type": 2
                 },
                 {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
-                    "type": 2
-                },
-                {
                     "id": 13,
                     "diameter": 80,
                     "position": [
@@ -4766,16 +4676,6 @@
                         0
                     ],
                     "force": 1.0,
-                    "type": 2
-                },
-                {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
                     "type": 2
                 },
                 {
@@ -5286,16 +5186,6 @@
                     "type": 2
                 },
                 {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
-                    "type": 2
-                },
-                {
                     "id": 13,
                     "diameter": 80,
                     "position": [
@@ -5800,16 +5690,6 @@
                         0
                     ],
                     "force": 1.0,
-                    "type": 2
-                },
-                {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
                     "type": 2
                 },
                 {
@@ -6320,16 +6200,6 @@
                     "type": 2
                 },
                 {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
-                    "type": 2
-                },
-                {
                     "id": 13,
                     "diameter": 80,
                     "position": [
@@ -6834,16 +6704,6 @@
                         0
                     ],
                     "force": 1.0,
-                    "type": 2
-                },
-                {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
                     "type": 2
                 },
                 {
@@ -7354,16 +7214,6 @@
                     "type": 2
                 },
                 {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
-                    "type": 2
-                },
-                {
                     "id": 13,
                     "diameter": 80,
                     "position": [
@@ -7868,16 +7718,6 @@
                         0
                     ],
                     "force": 1.0,
-                    "type": 2
-                },
-                {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
                     "type": 2
                 },
                 {
@@ -8388,16 +8228,6 @@
                     "type": 2
                 },
                 {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
-                    "type": 2
-                },
-                {
                     "id": 13,
                     "diameter": 80,
                     "position": [
@@ -8902,16 +8732,6 @@
                         0
                     ],
                     "force": 1.0,
-                    "type": 2
-                },
-                {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
                     "type": 2
                 },
                 {
@@ -9422,16 +9242,6 @@
                     "type": 2
                 },
                 {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
-                    "type": 2
-                },
-                {
                     "id": 13,
                     "diameter": 80,
                     "position": [
@@ -9936,16 +9746,6 @@
                         0
                     ],
                     "force": 1.0,
-                    "type": 2
-                },
-                {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
                     "type": 2
                 },
                 {
@@ -10456,16 +10256,6 @@
                     "type": 2
                 },
                 {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
-                    "type": 2
-                },
-                {
                     "id": 13,
                     "diameter": 80,
                     "position": [
@@ -10970,16 +10760,6 @@
                         0
                     ],
                     "force": 1.0,
-                    "type": 2
-                },
-                {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
                     "type": 2
                 },
                 {
@@ -11490,16 +11270,6 @@
                     "type": 2
                 },
                 {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
-                    "type": 2
-                },
-                {
                     "id": 13,
                     "diameter": 80,
                     "position": [
@@ -12004,16 +11774,6 @@
                         0
                     ],
                     "force": 1.0,
-                    "type": 2
-                },
-                {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
                     "type": 2
                 },
                 {
@@ -12524,16 +12284,6 @@
                     "type": 2
                 },
                 {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
-                    "type": 2
-                },
-                {
                     "id": 13,
                     "diameter": 80,
                     "position": [
@@ -13038,16 +12788,6 @@
                         0
                     ],
                     "force": 1.0,
-                    "type": 2
-                },
-                {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
                     "type": 2
                 },
                 {
@@ -13558,16 +13298,6 @@
                     "type": 2
                 },
                 {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
-                    "type": 2
-                },
-                {
                     "id": 13,
                     "diameter": 80,
                     "position": [
@@ -14072,16 +13802,6 @@
                         0
                     ],
                     "force": 1.0,
-                    "type": 2
-                },
-                {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
                     "type": 2
                 },
                 {
@@ -14592,16 +14312,6 @@
                     "type": 2
                 },
                 {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
-                    "type": 2
-                },
-                {
                     "id": 13,
                     "diameter": 80,
                     "position": [
@@ -15106,16 +14816,6 @@
                         0
                     ],
                     "force": 1.0,
-                    "type": 2
-                },
-                {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
                     "type": 2
                 },
                 {
@@ -15626,16 +15326,6 @@
                     "type": 2
                 },
                 {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
-                    "type": 2
-                },
-                {
                     "id": 13,
                     "diameter": 80,
                     "position": [
@@ -16140,16 +15830,6 @@
                         0
                     ],
                     "force": 1.0,
-                    "type": 2
-                },
-                {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
                     "type": 2
                 },
                 {
@@ -16660,16 +16340,6 @@
                     "type": 2
                 },
                 {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
-                    "type": 2
-                },
-                {
                     "id": 13,
                     "diameter": 80,
                     "position": [
@@ -17174,16 +16844,6 @@
                         0
                     ],
                     "force": 1.0,
-                    "type": 2
-                },
-                {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
                     "type": 2
                 },
                 {
@@ -17694,16 +17354,6 @@
                     "type": 2
                 },
                 {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
-                    "type": 2
-                },
-                {
                     "id": 13,
                     "diameter": 80,
                     "position": [
@@ -18208,16 +17858,6 @@
                         0
                     ],
                     "force": 1.0,
-                    "type": 2
-                },
-                {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
                     "type": 2
                 },
                 {
@@ -18728,16 +18368,6 @@
                     "type": 2
                 },
                 {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
-                    "type": 2
-                },
-                {
                     "id": 13,
                     "diameter": 80,
                     "position": [
@@ -19242,16 +18872,6 @@
                         0
                     ],
                     "force": 1.0,
-                    "type": 2
-                },
-                {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
                     "type": 2
                 },
                 {
@@ -19762,16 +19382,6 @@
                     "type": 2
                 },
                 {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
-                    "type": 2
-                },
-                {
                     "id": 13,
                     "diameter": 80,
                     "position": [
@@ -20276,16 +19886,6 @@
                         0
                     ],
                     "force": 1.0,
-                    "type": 2
-                },
-                {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
                     "type": 2
                 },
                 {
@@ -20796,16 +20396,6 @@
                     "type": 2
                 },
                 {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
-                    "type": 2
-                },
-                {
                     "id": 13,
                     "diameter": 80,
                     "position": [
@@ -21310,16 +20900,6 @@
                         0
                     ],
                     "force": 1.0,
-                    "type": 2
-                },
-                {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
                     "type": 2
                 },
                 {
@@ -21830,16 +21410,6 @@
                     "type": 2
                 },
                 {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
-                    "type": 2
-                },
-                {
                     "id": 13,
                     "diameter": 80,
                     "position": [
@@ -22344,16 +21914,6 @@
                         0
                     ],
                     "force": 1.0,
-                    "type": 2
-                },
-                {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
                     "type": 2
                 },
                 {
@@ -22864,16 +22424,6 @@
                     "type": 2
                 },
                 {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
-                    "type": 2
-                },
-                {
                     "id": 13,
                     "diameter": 80,
                     "position": [
@@ -23378,16 +22928,6 @@
                         0
                     ],
                     "force": 1.0,
-                    "type": 2
-                },
-                {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
                     "type": 2
                 },
                 {
@@ -23898,16 +23438,6 @@
                     "type": 2
                 },
                 {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
-                    "type": 2
-                },
-                {
                     "id": 13,
                     "diameter": 80,
                     "position": [
@@ -24415,16 +23945,6 @@
                     "type": 2
                 },
                 {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
-                    "type": 2
-                },
-                {
                     "id": 13,
                     "diameter": 80,
                     "position": [
@@ -24929,16 +24449,6 @@
                         0
                     ],
                     "force": 1.0,
-                    "type": 2
-                },
-                {
-                    "id": 12,
-                    "diameter": 36,
-                    "position": [
-                        50,
-                        -50
-                    ],
-                    "force": 10.0,
                     "type": 2
                 },
                 {

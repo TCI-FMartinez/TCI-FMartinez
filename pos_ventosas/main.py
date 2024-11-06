@@ -1,7 +1,6 @@
 #########>>>>>>>>>>>>>>>> GENERADOR DE HERRAMIENTAS DE VENTOSAS <<<<<<<<<<<<<<<<<<<<<<<<<<###########
 # Created by: @F.Martinez
 
-
 # COMPILAR
 # pyinstaller --distpath DISTRO --collect-data palettable --onefile -n padstools main.py
 
