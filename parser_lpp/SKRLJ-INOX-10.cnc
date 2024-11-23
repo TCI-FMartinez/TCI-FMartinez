@@ -1,14 +1,14 @@
 ()  ;
-( MACHINE :  )  ;
+( MACHINE : Dynamicline )  ;
 ( MATERIAL : Inoxidable )  ;
 ( THICKNESS : 10 )  ;
 ( LENS : 150 )  ;
 ( GAS : 1 )  ;
 ( POWER : 6000 )  ;
-( PARAM :  )  ;
+( PARAM : Acero al carbono O2 )  ;
 ( REPETITIONS : 1 )  ;
 ( SIMULATION TIME : 02:20:22 )  ;
-( FORMAT : 3000x1500 )  ;
+( FORMAT : 3000X1500 )  ;
 ( JOB NUMBER : SKRLJ )  ;
 ( PROGRAM NUMBER : 93741 )  ;
 ( TYPE : 0 )  ;
