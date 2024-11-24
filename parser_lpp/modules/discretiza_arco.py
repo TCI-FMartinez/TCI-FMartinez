@@ -20,7 +20,7 @@ G3X65.84Y353.15I0J-2.75  ;
 """
 
 
-def DiscretizaArco (X_start, Y_start, X_end, Y_end, I, J, N = 10, is_G3 = True) -> list:
+def DiscretizaArco (X_start, Y_start, X_end, Y_end, I, J, N = 10, horario = True) -> list:
 
     # Centro absoluto
     C_x = X_start + I
@@ -36,7 +36,7 @@ def DiscretizaArco (X_start, Y_start, X_end, Y_end, I, J, N = 10, is_G3 = True) 
 
     ##vvvvvvvvvvvv AQUI HAY QUE DISTINGUIR SI ES INTERIOR O EXTERIOR PARA GIRAR A DERECHAS O IZQ  vvvvvvvvv
     # Asegurarse de que theta_end es mayor que theta_start para un arco antihorario (G3)
-    if theta_end < theta_start and is_G3:
+    if theta_end < theta_start and not horario:
         theta_end += 2 * np.pi
         # Si es horario, asegurarse de que theta_end es menor que theta_start
     else:
@@ -45,6 +45,7 @@ def DiscretizaArco (X_start, Y_start, X_end, Y_end, I, J, N = 10, is_G3 = True) 
 
     # Discretización
     #N = 10  # Número de segmentos
+    
     delta_theta = (theta_end - theta_start) / N
 
     # Cálculo de puntos discretos

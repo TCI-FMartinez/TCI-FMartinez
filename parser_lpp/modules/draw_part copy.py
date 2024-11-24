@@ -42,7 +42,7 @@ def draw_contours(pieces_files, output_filename="output_contours.png", out_WH=(4
             print(message)
 
     def offset_y(y, min_y=0):
-        return int((y - min_y - Oy) + 35 )
+        return int((y - min_y - Oy) + 35)
 
     def offset_x(x, min_x=0):
         return int((x - min_x - Ox) + 25)
@@ -67,39 +67,49 @@ def draw_contours(pieces_files, output_filename="output_contours.png", out_WH=(4
     def draw_piercing(image, x, y):
         cv2.circle(image, (int(x), int(y)), 2, piercing_dot[0], piercing_dot[1])
 
-    def draw_contour(image, contour, cut_line_type, current_pos, min_x, min_y):
-        log_debug("Drawing contour.")
+    def draw_contour(image, contour, cut_line_type, current_pos):
+        log_debug("Drawing contour")
+        #contour.append((G123_match, x2, y2, I, J))
         x1, y1 = current_pos
+        # Calcula el ares y orientación
         area = calculate_contour_orientation(contour)
-        clockwise = area < 0
-        print("Horario:", clockwise)
-    
+        clockwise = area > 0
+        ###############################################33 FALTA DISTINGUIR SI ES G1, G2, G3
         for segment in contour:
-            Gx, point, i, j = segment
-            #log_debug(f"    Antes del offset: x1={x1}, y1={y1}, x2={point[0]}, y2={point[1]}, min_x={min_x}, min_y={min_y}")
-            Gx =  Gx[0]
+            Gx, point, i2, j2 = segment
             x2 = offset_x(point[0], min_x)
             y2 = offset_y(point[1], min_y)
-           
             if Gx == "G1" or Gx == "G01":
-                log_debug(f"D G1 X{x2} Y{y2}")
-                image = cv2.line(image, (int(x1), int(y1)), (int(x2), int(y2)), cut_line_type[0], cut_line_type[1])
+                cv2.line(image, (int(x1), int(y1)), (int(x2), int(y2)), cut_line_type[0], cut_line_type[1])
+                x1 = x2
+                y1 = y2
+            elif Gx == "G2" or Gx == "G02":
+                """
+                for p1, p2 in zip(G2_points[:-1], G2_points[1:]):
+                    cv2.line(image, (int(p1[0]), int(p1[1])), (int(p2[0]), int(p2[1])), cut_line_type[0], cut_line_type[1])
+                """
+                G2_points = DiscretizaArco(x1, y1, x2, y2, i2, j2, clockwise)
+                for p in G2_points:
+                    cv2.line(image, (int(x1), int(y1)), (int(x2), int(y2)), cut_line_type[0], cut_line_type[1])
+                    x1 = x2
+                    y1 = y2
+            elif Gx == "G3" or Gx == "G03":
+                G3_points = DiscretizaArco(x1, y1, x2, y2, i2, j2, clockwise)
+                for p in G3_points:
+                    cv2.line(image, (int(x1), int(y1)), (int(x2), int(y2)), cut_line_type[0], cut_line_type[1])
+                    x1 = x2
+                    y1 = y2
+            elif Gx == "G0" or Gx == "G00":
+                cv2.line(image, (int(x1), int(y1)), (int(x2), int(y2)), cut_line_type[0], cut_line_type[1])
+                x1 = x2
+                y1 = y2
+            else:
+                print("Draw contour fail: No G code match. <-", Gx)
 
-            elif Gx in {"G2", "G02", "G3", "G03"}:
-                log_debug(f"D {Gx} X{x2} Y{y2} I{i} J{j}")
-                arc_points = DiscretizaArco(x1, y1, point[0], point[1], i, j, N, clockwise)
+        return x1, y1
 
-                for p in arc_points:
-                    image = cv2.line(image, (int(x1), int(y1)), (int(p[0]), int(p[1])), cut_line_type[0], cut_line_type[1])
-                    x1, y1 = p[0], p[1]
 
-            elif Gx in {"G0", "G00"}:
-                log_debug(f"D G0 X{x2} Y{y2}")
-                image = cv2.line(image, (int(x1), int(y1)), (int(x2), int(y2)), free_line[0], free_line[1])
-                x1, y1 = x2, y2
-            
-            x1, y1 = x2, y2
-        return x1, y1, image
+
 
     # Proceso principal ############################################################################################
     for file_name in pieces_files:
@@ -156,7 +166,6 @@ def draw_contours(pieces_files, output_filename="output_contours.png", out_WH=(4
                     if new_contour:
                         draw_piercing(image, x1, y1)            ###############<<<<<<<<<<<<< PIERCING
                         new_contour = False
-
                     if re.search(G3_pattern, line):
                         coordinates = re.findall(r'[XYIJ]([-\d.]+)', line)
                         if len(coordinates) >= 2:
@@ -164,8 +173,8 @@ def draw_contours(pieces_files, output_filename="output_contours.png", out_WH=(4
                             y2 = offset_y(int(float(coordinates[1])), min_y)
                             I = int(float(coordinates[2]))
                             J = int(float(coordinates[3]))
-                            contour.append((G123_match, (x2, y2), I, J))
-
+                            log_debug(f"G3 X{x2} Y{y2} I{I} J{J}")
+                            contour.append((G123_match, x2, y2, I, J))
                     elif re.search(G2_pattern, line):
                         coordinates = re.findall(r'[XYIJ]([-\d.]+)', line)
                         if len(coordinates) >= 2:
@@ -174,34 +183,32 @@ def draw_contours(pieces_files, output_filename="output_contours.png", out_WH=(4
                             I = int(float(coordinates[2]))
                             J = int(float(coordinates[3]))
                             log_debug(f"G2 X{x2} Y{y2} I{I} J{J}")
-                            contour.append((G123_match, (x2, y2), I, J))
-
+                            contour.append((G123_match, x2, y2, I, J))
                     elif re.search(G1_pattern, line):
                         coordinates = re.findall(r'[XY]([-\d.]+)', line)
                         if len(coordinates) >= 2:
                             x2 = offset_x(int(float(coordinates[0])), min_x)
                             y2 = offset_y(int(float(coordinates[1])), min_y)
-                            contour.append((G123_match, (x2, y2), 0, 0))
+                            log_debug(f"G1 X{x2} Y{y2}")
+                            contour.append((G123_match, x2, y2, 0, 0))
 
                     current_line += 1
-
                 elif re.search(P9103_pattern, line):
                     new_contour = True
                     #contours.append([contour, clockwise])
                     if len(contour) > 0:
-                        x1, y1, image = draw_contour(image, contour, cut_line_type, (x1, y1), min_x, min_y)
+                        x1, y1 = draw_contour(image, contour, cut_line_type, (x1, y1))
                     else:
                         print("Fin de contorno, sin segmentos!")
-
                     current_line += 1
-
                 elif re.search(G0_pattern, line):
                     coordinates = re.findall(r'[XY]([-\d.]+)', line)
                     if len(coordinates) >= 2:
                         x2 = offset_x(int(float(coordinates[0])), min_x)
                         y2 = offset_y(int(float(coordinates[1])), min_y)
-                        x1, y1, image = draw_contour(image, [("G0", (x2, y2), 0, 0)], free_line, (x1, y1), min_x, min_y)
-
+                        log_debug(f"G0 X{x2} Y{y2}")
+                        contour.append((G123_match, x2, y2, 0, 0))
+                        x1, y1 = draw_contour(image, [("G0", (x2, y2), 0, 0)], free_line, (x1, y1))
                     current_line += 1
                 else:
                     current_line += 1
