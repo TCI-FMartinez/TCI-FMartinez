@@ -12,6 +12,8 @@ build
 *.zip
 *.7z
 *.rar
+*.png
+*.jpg
 
 # Ignora los archivos relacionados a API keys
 .env
