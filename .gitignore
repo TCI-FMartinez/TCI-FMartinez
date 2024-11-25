@@ -1,9 +1,10 @@
 # Ignora archivos del sistema Mac 
 .DS_store
 
-# Ignora la carpeta node_modules
+# Ignora la carpetas
 node_modules
 DISTRO
+build
 
 # Ignora los archivos
 *.temp
