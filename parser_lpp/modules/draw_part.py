@@ -88,7 +88,7 @@ def draw_contours(pieces_files, output_filename="output_contours.png", out_WH=(4
         return x_rotated, y_rotated
 
 
-    def create_canvas(points): 
+    def create_canvas(points, draw_bounding=True): 
         if points:
             min_x = min(p[0] for p in points)
             max_x = max(p[0] for p in points)
@@ -105,12 +105,27 @@ def draw_contours(pieces_files, output_filename="output_contours.png", out_WH=(4
 
             log_debug(f">>>>>>>>>>>>>>>>>>>>>>>>>Canvas size: {(canvas_size, canvas_size)} Bounding{((min_x, max_y), ( max_x, min_y))}")
             image = np.ones((canvas_size, canvas_size, 3), dtype=np.uint8) * 255
+
+            # Dibuja el bounding.
+            image = draw_boundingbox(image, ((min_x, min_y), (max_x, max_y)), draw_it=draw_bounding)
+
             return image, b_mix_X, b_max_Y
 
         return None, 0, 0
 
     def draw_piercing(image, x, y):
         cv2.circle(image, (int(x), int(y)), 2, piercing_dot[0], piercing_dot[1])
+
+    def draw_boundingbox (image, points, draw_it=True):
+        #print(f"Dreawing bounding box. {points}")
+        (min_x, min_y), (max_x, max_y) = points
+        min_x, min_y = transform_point(min_x, min_y, OX, OY, ANGLE)
+        max_x, max_y = transform_point(max_x, max_y, OX, OY, ANGLE)
+
+        if max_x > min_x and draw_it:
+            image = cv2.rectangle(image, (int(min_x), int(min_y)), (int(max_x), int(max_y)), (0,0,0), 1)
+        
+        return image
 
     def draw_contour(image, contour, cut_line_type, current_pos):
         log_debug("Drawing contour.")
@@ -185,7 +200,7 @@ def draw_contours(pieces_files, output_filename="output_contours.png", out_WH=(4
 
             output_filename = f"OUTPUT{sep}{piece_name}.png"
 
-            # Calculamos el tamaño del canvas
+            # Calculamos el tamaño del canvas           #esto está mal. No contemplo los radios.
             for line in gcode_content:
                 coordinates = re.findall(r'[XY]([-\d.]+)', line)
                 if len(coordinates) >= 2:
