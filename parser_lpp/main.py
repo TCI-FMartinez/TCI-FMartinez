@@ -35,6 +35,7 @@ def read_piece_file(directorio):
 ##########      MAIN
 
 filename = "SKRLJ-INOX-10.cnc"
+#filename = "TEST80x80P101R.lpp"
 
 draw_y_n:str = ""
 
@@ -93,4 +94,6 @@ while draw_y_n != "n" and draw_y_n != "y":
     draw_y_n = draw_y_n.lower()
 
 if draw_y_n == "y":
-    draw_contours(read_files, out_WH= (800,800))  
+    print("Generating PNG files...")
+    draw_contours(read_files, out_WH= (800,800))
+    print("Done.")

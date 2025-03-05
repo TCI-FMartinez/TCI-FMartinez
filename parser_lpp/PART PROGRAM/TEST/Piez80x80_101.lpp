@@ -1,0 +1,21 @@
+O0010 ;
+( MACHINE : TCI Laser ) ;
+( MATERIAL : Aluminio - AIRE ) ;
+( THICKNESS : 5 ) ;
+( REPETITIONS : 1 ) ;
+( SIMULATION TIME : 00:00:52 ) ;
+(FORMAT: 400.00x400.00 ) ;
+( JOB NUMBER : pruebas de corte ) ;
+( PROGRAM NUMBER : 10496 ) ;
+( TYPE : 0 ) ;
+( NUMBER OF SHEETS : 1 ) ;
+( CUTTING HEADS : 1 ) ;
+( LANTEK 2018, SP 2, Hotfix 20, POST 07 rev.xxxx
+mod.02/02/2019 16:28:38 ) ;
+#516= 1 ;
+#517= 1 ;
+N105 M98 P9100   ;
+(FOOTER)
+N2290 M98 P9110 ;
+N2300 M30 ;
+%

@@ -1,0 +1,23 @@
+O0099  ;
+( MACHINE :  )  ;
+( MATERIAL : ACERO AL CARBONO)  ;
+( DIN : 1.0038)  ;
+( THICKNESS : 20)  ;
+( LENS : 150)  ;
+( GAS : 2)  ;
+( POWER : 6000)  ;
+( PARAM : ...)  ;
+( REPETITIONS : 1 )  ;
+( SIMULATION TIME : 00:00:09 )  ;
+( FORMAT : 200x200 )  ;
+( JOB NUMBER : TCI )  ;
+( PROGRAM NUMBER : 49 )  ;
+( TYPE : 0 )  ;
+( NUMBER OF SHEETS : 1 )  ;
+( CUTTING HEADS : 1 )  ;
+#516= 1  ;
+#517= 1  ;
+N105 G65 P9100 A101 B01  ;
+N129 M98 P9110  ;
+N130 M30  ;
+%
