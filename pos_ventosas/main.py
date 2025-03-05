@@ -14,7 +14,7 @@ from shutil import rmtree
 pads = list()
 LIENZO_XY = (1500, 1125)
 FORMATO_SALIDA = (800, 600)
-RUTA_POS_JSON = f"HERRAMIENTA01{sep}posiciones.json"
+RUTA_POS_JSON = f"HERRAMIENTA01{sep}posiciones_H01_movil.json"
 RUTA_PADS_JSON = f"HERRAMIENTA01{sep}tool_M_entrada_ventosas.json"
 
 class Pad:
@@ -169,6 +169,7 @@ if __name__ == "__main__":
     n_h = 0
     tools_list = []
     tools_dict = {}
+
    
     for y in posiciones_y:
         for x in posiciones_x:
@@ -225,7 +226,7 @@ if __name__ == "__main__":
     print("Generando JSON...")
 
     # Convertir la lista de diccionarios a JSON
-    json_data = json.dumps({"tools": tools_list}, indent=4)
+    json_data = json.dumps({"tools": tools_list, "geometry": _geometry}, indent=1)
 
     # Guardar en un archivo JSON
     with open(f"OUTPUT{sep}tools_data.json", "w") as f:

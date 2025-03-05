@@ -1,0 +1,12 @@
+{
+  "pads": [
+    {"id": 1, "posX": 0, "posY": 0, "type": 1, "force": 16.3, "is_active": false, "diameter": 37, "dependence": [0, 0]},
+    {"id": 2, "posX": -26.52, "posY": 26.52, "type": 2, "force": 0.2, "is_active": false, "diameter": 14, "dependence": [0, 0]},
+    {"id": 3, "posX": 26.52, "posY": 26.52, "type": 2, "force": 0.2, "is_active": false, "diameter": 14, "dependence": [0, 0]},
+    {"id": 4, "posX": 26.52, "posY": -26.52, "type": 2, "force": 0.2, "is_active": false, "diameter": 14, "dependence": [0, 0]},
+    {"id": 5, "posX": -26.52, "posY": -26.52, "type": 2, "force": 0.2, "is_active": false, "diameter": 14, "dependence": [0, 0]}
+  ],
+  "contorno": [
+    [-50, 50], [50, 50], [50, -50], [-50, -50]
+]
+}

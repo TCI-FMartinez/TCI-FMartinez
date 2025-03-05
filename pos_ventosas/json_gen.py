@@ -4,7 +4,7 @@ import numpy as np
 from os import sep
 
 formato = (800, 600)
-filename = "tool01_salida_contornos"
+filename = "toolH01_salida_contornos"
 
 my_list = []
 _puntos = []
@@ -32,7 +32,7 @@ def colorize(_type:int=0)->tuple:
         color = (55, 55, 55)
     return color
 
-with open(f"HERRAMIENTA01{sep}tool01_entrada_ventosas.json") as v:
+with open(f"HERRAMIENTA01{sep}tool_M_entrada_ventosas.json") as v:
     herramienta_ = json.load(v)
 
 ventosas = herramienta_["ventosas"]
