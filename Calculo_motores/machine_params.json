@@ -1,0 +1,17 @@
+{
+    "mass_kg": 550,
+    "reducer_ratio": 5,
+    "pinion_diameter_m": 0.06,
+    "rack_module": 0.005,
+    "motor_torque_nominal_nm": 40,
+    "motor_torque_peak_nm": 115,
+    "motor_max_rpm": 4000,
+    "motor_inertia_kgm2": 0.0099,
+    "reducer_inertia_kgm2": 0.0005,
+    "max_reducer_radial_torque_nm": 19000,
+    "max_reducer_tilting_torque_nm": 3200,
+    "sim_acceleration_mps2": 0.35,
+    "max_jerk_mps3": 3.0,
+    "cutting_speed_mps": 0.015,
+    "rapid_speed_mps": 1.9
+}
