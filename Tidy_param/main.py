@@ -81,6 +81,8 @@ factory_folders, user_folders = find_param_dirs(proces_path)
 ### Ficheros por carpeta de parámetros #######################
 # Buscamos fichero por carpeta en los directorios encontrados.
 global_table = []  # Aquí se acumularán todas las tablas generadas
+if len(factory_folders) == 0: print("No se han encontrado directorios de parámetros 'factory'.")
+if len(user_folders) == 0: print("No se han encontrado directorios de parámetros 'user'.")
 for d in factory_folders:
     # d[0] indica si el directorio es válido (según la lógica de find_param_dirs)
     if d[0]:
@@ -102,6 +104,28 @@ for d in factory_folders:
                 # Añadimos la tabla generada a la tabla global
                 global_table.append(tabla)
 
+for ud in user_folders:
+    # ud[0] indica si el directorio es válido (según la lógica de find_param_dirs)
+    if ud[0]:
+        print(">>>>>>>>>>>>>>>>", ud[1])
+        # d[2] es la lista de subdirectorios (carpetas que contienen parámetros)
+        for pf in ud[2]:
+            pf_complt = f"{proces_path}{sep}{ud[1]}{sep}{pf}"
+            uficheros = find_params_files(pf_complt)
+            # Recorremos cada fichero encontrado en la carpeta de parámetros
+            for f in uficheros:
+                pf_complt_u = f"{pf_complt}{sep}{f}"
+                # Abrimos el fichero y extraemos su contenido
+                utabla = OpenFile(pf_complt_u)
+                # Procesamos la tabla para obtener sólo las líneas de interés,
+                # usando como 'origen' el nombre del directorio (d[1])
+                utabla = find_param_line(tabla, origen=ud[1])
+                # Imprimimos la tabla para revisión (opcional)
+                # print(utabla)
+                # Añadimos la utabla generada a la tabla global
+                global_table.append(utabla)
+
+
 # Al final, global_table contendrá una lista con todas las tablas generadas
 #print("\nTabla global con todo lo encontrado:")
 #for row in global_table:
@@ -116,12 +140,13 @@ if not path.exists(path.join(cwd_path, "OUTPUT")):
     mkdir(path.join(cwd_path, "OUTPUT"))
 
 # Escribir la tabla global en un archivo CSV con el formato deseado
-with open(csv_file, "w", newline='', encoding="utf-8") as f:
-    escritor_csv = csv.writer(f, delimiter=";", quotechar="|", quoting=csv.QUOTE_MINIMAL)
-    for fila in global_table:
-        escritor_csv.writerow(fila)
+if len(global_table) > 0:
+    with open(csv_file, "w", newline='', encoding="utf-8") as f:
+        escritor_csv = csv.writer(f, delimiter=";", quotechar="|", quoting=csv.QUOTE_MINIMAL)
+        for fila in global_table:
+            escritor_csv.writerow(fila)
 
-print("Se ha generado el archivo CSV:", csv_file)
+    print("Se ha generado el archivo CSV:", csv_file)
 
 
 ############################################################################################
@@ -136,20 +161,23 @@ grupos = {}  # clave: (material, espesor), valor: lista de filas
 for fila in global_table:
     # Asegurarse de que la fila tiene al menos 4 elementos
     if len(fila) >= 4:
-        material = fila[2]  #fila[1]Nombre fila[]Nombre corto fila[3]DIN
+        material = fila[2]  #fila[1]Nombre fila[2]Nombre corto fila[3]DIN
+        if material == "304": material = "A-304"
         if material == "A304": material = "A-304"
         if material == "Al5754": material = "Al-5754"
         if material == "AlMg3": material = "Al-5754"
         if material == "AlMg5": material = "Al-5754"
-        if material == "ST37ZINC": material = "ST37-ZINC"
-        if material == "ZINC": material = "ST37-ZINC"
-        if material == "Galva": material = "ST37-ZINC"
+        if material.capitalize == "ST37ZINC": material = "ST37-ZINC"
+        if material.capitalize == "ZINC": material = "ST37-ZINC"
+        if material.capitalize == "GALVA": material = "ST37-ZINC"
+        if material.capitalize == "GALVANIZADO": material = "ST37-ZINC"
         if material == "275": material = "S275JR"
         if material == "235": material = "S235JR"
         if material == "S235": material = "S235JR"
         if material == "355": material = "S355JR"
         if material == "S355": material = "S355JR"
         if material == "S355J2": material = "S355JR"
+        if material == "CuZn37": material = "CuZn"
         if material == "LA": material = "CuZn"
         try:
             # Convertir el valor a float y formatearlo a un decimal
