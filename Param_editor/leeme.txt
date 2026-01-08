@@ -1,0 +1,122 @@
+=============================================
+            PARAMETROS A EXCEL -------->>
+=============================================
+
+¿QUÉ HACE ESTA APLICACIÓN?
+----------------------------
+1. Busca archivos de parámetros de corte contenidos en "factory" en la carpeta "para_procesar".
+2. Genera archivos de Excel (parametros.excel) en cada directorio encontrado.
+3. Edita a mano luego estos EXCEL para editar los valores.
+4.-Ejecuta la aplicación EXCELtoPARAM.exe para volver a generar archivos a partir del Excel que as editado.
+
+
+📂 ESTRUCTURA DE CARPETAS
+-------------------------
+Coloca tus archivos de parametros aquí:
+└── 📁 para_procesar/
+    └──📁 12kW PROCUTTER/
+        └──📁 factory/
+            └── 📄 parametros
+
+Los resultados se guardarán aquí:
+└── 📁 parametros_exportados/
+
+
+⚙️ PASOS PARA USARLA
+--------------------
+1. **Prepara tu parametros**: 
+   - Asegúrate de tener lineas como: 
+     N001, N004, N005, N037 (ej: "Espesor", "Tipo de gas").
+   
+2. **Ejecuta la aplicación**:
+   - Doble clic en "PARAMtoEXCEL.exe".
+   - *O desde la terminal*: 
+     ```bash
+     EXCELtoPARAM.exe
+     ```
+
+3. **Resultados**:
+   - Encuentra tus archivos parametros.xlsx en la cada carpeta de parámetros "factory".
+
+
+
+=============================================
+  <<-------- EXCEL A PARAMETROS
+=============================================
+
+¿QUÉ HACE ESTA APLICACIÓN?
+----------------------------
+1. Busca archivos Excel llamados "parametros.xlsx" en la carpeta "para_procesar".
+2. Genera archivos de texto (.lparam) con los datos procesados.
+3. Normaliza automáticamente los nombres de materiales (ej: "galvanizado" → "GALVA").
+
+
+📂 ESTRUCTURA DE CARPETAS
+-------------------------
+Coloca tus archivos Excel aquí:
+└── 📁 para_procesar/
+    └──📁 12kW PROCUTTER/
+        └──📁 factory/
+            └── 📄 parametros.xlsx
+
+Los resultados se guardarán aquí:
+└── 📁 parametros_exportados/
+
+
+⚙️ PASOS PARA USARLA
+--------------------
+1. **Prepara tu Excel**: 
+   - Asegúrate de tener columnas como: 
+     N000, N001, N004, N005, N037 (ej: "Espesor", "Tipo de gas").
+   
+2. **Ejecuta la aplicación**:
+   - Doble clic en "EXCELtoPARAM.exe".
+   - *O desde la terminal*: 
+     ```bash
+     EXCELtoPARAM.exe
+     ```
+
+3. **Resultados**:
+   - Encuentra tus archivos .lparam en la carpeta "parametros_exportados".
+
+
+🛠 INFO
+-----------------------------
+# Diccionario de equivalencias:
+    material_map
+        "steel": "MILD STEEL",
+        "steel al carbono": "MILD STEEL",
+        "esteel al carbono-mix": "MILD STEEL",
+        "steel al carbono mix": "MILD STEEL",
+        "acero al carbono": "MILD STEEL",
+        "acero": "MILD STEEL",
+        "hierro": "MILD STEEL",
+        "galva": "GALVA",
+        "galvanizado": "GALVA",
+        "galvanized": "GALVA",
+        "inox": "STAINLESS STEEL",
+        "stainless": "STAINLESS STEEL",
+        "aluminio": "ALUMINIUM",
+        "aluminum": "ALUMINIUM"
+  
+ # Validar columnas obligatorias:
+        "N000",  # Ruta
+        "N001",  # Nombre
+        "N002",  # Abreviado
+        "N003",  # DIN
+        "N004",  # Espesor
+        "N005",  # Potencia fuente láser
+        "N006",  # Longitud focal
+        "N026",  # Texto1
+        "N037",  #Tipo de gas
+
+# Construcción del nombre del archivo de parámetros:
+    {material}-{tipo_de_gas}-{espesor}-{texto1}.lparam"
+
+❓ ¿PROBLEMAS?
+-------------
+- ¿No se generan archivos? → Verifica que el Excel esté en "para_procesar".
+- ¿Nombres extraños? → Revisa las columnas N000 (ruta), N001 (Nombre) y N037 (Tipo de gas).
+
+
+¡LISTO PARA USAR! 🚀

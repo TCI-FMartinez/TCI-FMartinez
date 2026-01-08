@@ -1,0 +1,21 @@
+Opción 1: DexiNed (Dense Extreme Inception Network)
+git clone https://github.com/xavysp/DexiNed.git
+cd DexiNed
+
+pip install -r requirements.txt
+
+python main.py --is_testing True --save_results True
+
+
+ Opción 2: UHNet (Ultra-Lightweight and High-Speed Edge Detection Network)
+Ventajas:
+
+Modelo ligero y rápido, ideal para sistemas con recursos limitados.
+
+Alto rendimiento en detección de bordes.
+
+Pasos para implementarlo:
+git clone https://github.com/stoneLi20cv/UHNet.git
+cd UHNet
+pip install -r requirements.txt
+python test.py --input_dir path_to_images --output_dir path_to_save_results

@@ -1,0 +1,25 @@
+O0099  ;
+( MACHINE : TCI Standard Fiber )  ;
+( MATERIAL : Galvanizado )  ;
+( THICKNESS : 1.5 )  ;
+( DIN : 000002 )  ;
+( LENS : 5 )  ;
+( GAS : N2 )  ;
+( POWER : 12000 )  ;
+( PARAM :  )  ;
+( REPETITIONS : 1 )  ;
+( SIMULATION TIME : 00:13:49 )  ;
+( FORMAT : 1500x1000 )  ;
+( VENTOSAS: 16380, 64708, 52471, 4092)  ;
+( JOB NUMBER : Sorting )  ;
+( PROGRAM NUMBER : 195 )  ;
+( TYPE : 0 )  ;
+( NUMBER OF SHEETS : 1 )  ;
+( CUTTING HEADS : 1 )  ;
+#516= 1  ;
+#517= 1  ;
+N105 G65 P9100 A101 B02  ;
+(FOOTER)
+N896 M98 P9110  ;
+N897 M30  ;
+%

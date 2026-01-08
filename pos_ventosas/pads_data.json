@@ -1,0 +1,202 @@
+{
+    "pads": [
+        {
+            "id": 1,
+            "diameter": 80,
+            "position": [
+                100,
+                -100
+            ],
+            "force": 5.0
+        },
+        {
+            "id": 2,
+            "diameter": 80,
+            "position": [
+                0,
+                -100
+            ],
+            "force": 5.0
+        },
+        {
+            "id": 3,
+            "diameter": 80,
+            "position": [
+                -100,
+                -100
+            ],
+            "force": 5.0
+        },
+        {
+            "id": 4,
+            "diameter": 80,
+            "position": [
+                100,
+                100
+            ],
+            "force": 5.0
+        },
+        {
+            "id": 5,
+            "diameter": 80,
+            "position": [
+                0,
+                100
+            ],
+            "force": 5.0
+        },
+        {
+            "id": 6,
+            "diameter": 80,
+            "position": [
+                -100,
+                100
+            ],
+            "force": 5.0
+        },
+        {
+            "id": 7,
+            "diameter": 35,
+            "position": [
+                150,
+                -150
+            ],
+            "force": 0.7
+        },
+        {
+            "id": 8,
+            "diameter": 35,
+            "position": [
+                50,
+                -150
+            ],
+            "force": 0.7
+        },
+        {
+            "id": 9,
+            "diameter": 36,
+            "position": [
+                -50,
+                -150
+            ],
+            "force": 10.0
+        },
+        {
+            "id": 10,
+            "diameter": 35,
+            "position": [
+                -150,
+                -150
+            ],
+            "force": 0.7
+        },
+        {
+            "id": 11,
+            "diameter": 36,
+            "position": [
+                150,
+                -50
+            ],
+            "force": 10.0
+        },
+        {
+            "id": 12,
+            "diameter": 36,
+            "position": [
+                50,
+                -50
+            ],
+            "force": 10.0
+        },
+        {
+            "id": 13,
+            "diameter": 35,
+            "position": [
+                -50,
+                -50
+            ],
+            "force": 0.7
+        },
+        {
+            "id": 14,
+            "diameter": 36,
+            "position": [
+                -150,
+                -50
+            ],
+            "force": 10.0
+        },
+        {
+            "id": 15,
+            "diameter": 36,
+            "position": [
+                150,
+                50
+            ],
+            "force": 10.0
+        },
+        {
+            "id": 16,
+            "diameter": 36,
+            "position": [
+                50,
+                50
+            ],
+            "force": 10.0
+        },
+        {
+            "id": 17,
+            "diameter": 35,
+            "position": [
+                -50,
+                50
+            ],
+            "force": 0.7
+        },
+        {
+            "id": 18,
+            "diameter": 36,
+            "position": [
+                -150,
+                50
+            ],
+            "force": 10.0
+        },
+        {
+            "id": 19,
+            "diameter": 35,
+            "position": [
+                150,
+                150
+            ],
+            "force": 0.7
+        },
+        {
+            "id": 20,
+            "diameter": 35,
+            "position": [
+                50,
+                150
+            ],
+            "force": 0.7
+        },
+        {
+            "id": 21,
+            "diameter": 36,
+            "position": [
+                -50,
+                150
+            ],
+            "force": 10.0
+        },
+        {
+            "id": 22,
+            "diameter": 35,
+            "position": [
+                -150,
+                150
+            ],
+            "force": 0.7
+        }
+    ]
+}
