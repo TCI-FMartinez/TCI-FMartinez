@@ -12,7 +12,11 @@ def LogThis(mess_code:str="00",is_input:str="", mess_str:str="", value:str=""):
     timestamp = str(f"{ahora_fecha} {ahora_hora}")
     new_line = f"{timestamp} {is_input} [{mess_code}] = {mess_str} {value}\n"
     #print (new_line)
+<<<<<<< HEAD
     file_l = f"log_{ahora_fecha}.log"
+=======
+    file_l = f"{ahora.year}-{ahora.month}-{ahora.day}.log"
+>>>>>>> 1c10dfd723b18e7ebab8c2ec29ad78c9ad3f9b50
 
     if path.exists(f"LOG{sep}{file_l}"):
         exist_log = True

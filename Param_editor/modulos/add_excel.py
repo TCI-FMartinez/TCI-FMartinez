@@ -19,6 +19,10 @@ def add_excel(lines, nombre_archivo="parametros.xlsx", expected_columns=None):
     
     # Si se proporcionan columnas esperadas, pero no existen aún, se crea el DataFrame con dichas columnas.
     if not path.exists(nombre_archivo):
+<<<<<<< HEAD
+=======
+
+>>>>>>> 1c10dfd723b18e7ebab8c2ec29ad78c9ad3f9b50
         if expected_columns is None or len(expected_columns) == 0:
             print(f"El archivo {nombre_archivo} no existe y no se han proporcionado columnas esperadas.")
             return False
@@ -41,7 +45,14 @@ def add_excel(lines, nombre_archivo="parametros.xlsx", expected_columns=None):
         # Se crea una fila completa: se mantienen los valores que existan, y se asigna "" a los campos que falten.
         complete_line = {col: new_line.get(col, "") for col in expected_columns}
         # Se añade la fila al DataFrame.
+<<<<<<< HEAD
         df = df.append(complete_line, ignore_index=True)
+=======
+        #df = df.append(complete_line, ignore_index=True)
+        # Reemplazar append() por concat()
+        nuevo_df = pd.DataFrame([complete_line])  # Crear DataFrame temporal
+        df = pd.concat([df, nuevo_df], ignore_index=True)  # <-- Corrección aquí
+>>>>>>> 1c10dfd723b18e7ebab8c2ec29ad78c9ad3f9b50
     
     # Guardar el DataFrame actualizado en el archivo Excel aplicando formato.
     try:
@@ -57,6 +68,10 @@ def add_excel(lines, nombre_archivo="parametros.xlsx", expected_columns=None):
                 'border': 1
             })
             worksheet.set_row(0, None, header_format)
+<<<<<<< HEAD
+=======
+            worksheet.set_row(1, None, header_format)
+>>>>>>> 1c10dfd723b18e7ebab8c2ec29ad78c9ad3f9b50
         print("Archivo Excel actualizado correctamente.")
     except Exception as e:
         print("Error al escribir el archivo:", e)

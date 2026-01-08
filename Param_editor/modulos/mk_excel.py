@@ -1,5 +1,9 @@
 
 import xlsxwriter
+<<<<<<< HEAD
+=======
+import pandas as pd
+>>>>>>> 1c10dfd723b18e7ebab8c2ec29ad78c9ad3f9b50
 
 from os import path
 from time import sleep
@@ -11,8 +15,13 @@ def mk_excel(ns_dict, archivo="parametros.xlsx"):
     Crea un Excel con la información de la metadata.
     
     - La primera fila contiene los 'keys' (ej.: "N000", "N001", ...).
+<<<<<<< HEAD
     - La segunda fila contiene el primer elemento de cada tupla (ej.: "Ruta del parámetro", "Nombre", ...).
 
+=======
+    - La segunda fila contiene Lectura/Escritura R/S (ej.: "R/S" en cada columna).
+    - La tercera fila contiene el primer elemento de cada tupla (ej.: "Ruta del parámetro", "Nombre", ...).
+>>>>>>> 1c10dfd723b18e7ebab8c2ec29ad78c9ad3f9b50
     """
     # Obtener las claves en orden (omitimos "properties")
     keys = [k for k in ns_dict if k != "properties"]
@@ -21,6 +30,7 @@ def mk_excel(ns_dict, archivo="parametros.xlsx"):
     workbook = xlsxwriter.Workbook(archivo)
     worksheet = workbook.add_worksheet("Hoja1")
     
+<<<<<<< HEAD
     # Escribir la primera fila: los keys
     for col, key in enumerate(keys):
         worksheet.write(0, col, key)
@@ -48,6 +58,53 @@ def mk_excel(ns_dict, archivo="parametros.xlsx"):
 
     workbook.close()
     sleep(2)
+=======
+    # Definir formatos para cada fila
+    formato_fila1 = workbook.add_format({
+        'bold': True,
+        'italic': False,
+        'font_color': 'black'
+    })
+    
+    formato_fila2 = workbook.add_format({
+        'bold': True,
+        'italic': True,
+        'font_color': 'black'
+    })
+    
+    #formato_fila3 = workbook.add_format({
+    #    'bold': True,
+    #    'italic': True,
+    #    'font_color': 'black'
+    #})
+    
+    # Aplicar los formatos a las filas completas
+    worksheet.set_row(0, None, formato_fila1)
+    worksheet.set_row(1, None, formato_fila2)
+    #worksheet.set_row(2, None, formato_fila3)
+    
+    # Escribir la primera fila: los keys
+    for col, key in enumerate(keys):
+        
+        worksheet.write(0, col, key, formato_fila1)
+    
+    ## Escribir la segunda fila: Lectura/Escritura R/S
+    #for col, key in enumerate(keys):
+    #    titulo = ns_dict[key][0] if ns_dict[key] and len(ns_dict[key]) > 0 else "R"
+    #    worksheet.write(1, col, titulo, formato_fila3)
+    
+    # Escribir la segunda fila: el primer elemento de cada tupla para cada key
+    for col, key in enumerate(keys):
+
+        titulo = ns_dict[key][1] if len(str(ns_dict[key][1])) > 0 else ""
+        if pd.isna(titulo):
+            titulo = ""
+        
+        worksheet.write(1, col, titulo, formato_fila1)
+    
+    workbook.close()
+    sleep(1)
+>>>>>>> 1c10dfd723b18e7ebab8c2ec29ad78c9ad3f9b50
     print(f"Archivo '{archivo}' creado con la metadata.")
 
 def add_data_lines(archivo, lines, ns_dict):
@@ -101,7 +158,11 @@ def add_data_lines(archivo, lines, ns_dict):
 if __name__ == "__main__":
     from param_methadata import param_methadata
 
+<<<<<<< HEAD
     ns_dict, _ = param_methadata()
+=======
+    result, ns_dict, _ = param_methadata()
+>>>>>>> 1c10dfd723b18e7ebab8c2ec29ad78c9ad3f9b50
 
     archivo = "parametros.xlsx"
     

@@ -1,0 +1,9 @@
+{
+    "diametro_fibra": 100.0,
+    "distancia_focal_colimacion": 100.0,
+    "distancia_focal_enfoque": 150.0,
+    "BPP_fibra": 3.5,
+    "longitud_onda": 1070,
+    "angulo_incidente_deg": 0.0,
+    "estado_superficie": "laminada"
+}

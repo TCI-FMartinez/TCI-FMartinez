@@ -1,0 +1,21 @@
+{
+    "material": "acero",
+    "espesor_mm":10.0,
+    "potencia_laser_w": 6000.0,
+    "velocidad_mm_min": 2000.0,
+    "posicion_focal_mm": 6.0,
+    "gas": "O2",
+	"presion_gas_bar": 0.7,
+    "phi_jet_base": 0.30,
+    "f_vap": 0.05,
+    "k_otros_W": 500.0,
+    "theta_incidente_deg": 0.0,
+    "polarizacion": "unpol",
+    "estado_superficie": "laminada",
+    "oxido": "ligera",
+    "absorptividad_fija": 0.55,
+    "altura_boquilla_mm": 1.5,
+    "diametro_boquilla_mm": 1.2,
+    "distancia_seguridad_mm": 0.8,
+    "comentarios": "Corte estándar acero 25mm, oxígeno, focal 8, 12kW"
+}

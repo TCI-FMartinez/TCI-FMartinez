@@ -1,0 +1,23 @@
+{
+    "material": "acero",
+    "espesor_mm": 10.0,
+    "potencia_laser_w": 8000.0,
+    "velocidad_mm_min": 1200.0,
+    "posicion_focal_mm": 1.5,
+    "gas": "O2",
+    "T_gas_K": 300.0,
+    "h_jet_W_m2K": 12000.0,
+    "frac_ox": 0.45,
+    "delta_h_reac_J_per_kgFe": 3700000.0,
+    "f_vap": 0.05,
+    "k_otros_W": 500.0,
+    "theta_incidente_deg": 0.0,
+    "polarizacion": "unpol",
+    "estado_superficie": "laminada",
+    "oxido": "ligera",
+    "absorptividad_fija": 0.95,
+    "altura_boquilla_mm": 0.75,
+    "diametro_boquilla_mm": 1.5,
+    "distancia_seguridad_mm": 2.0,
+    "comentarios": "Corte estándar acero 10mm, oxígeno, focal en superficie"
+}
