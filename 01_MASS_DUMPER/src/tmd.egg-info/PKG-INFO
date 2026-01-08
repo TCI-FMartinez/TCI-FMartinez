@@ -1,0 +1,17 @@
+Metadata-Version: 2.4
+Name: tmd
+Version: 0.1.0
+Summary: Tools for TMD characterization, identification and simulation
+Requires-Python: >=3.10
+License-File: LICENSE
+License-File: NOTICE
+Requires-Dist: numpy>=1.24
+Requires-Dist: scipy>=1.10
+Requires-Dist: matplotlib>=3.7
+Requires-Dist: pandas>=2.0
+Provides-Extra: tdms
+Requires-Dist: nptdms>=1.6; extra == "tdms"
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0; extra == "dev"
+Requires-Dist: ruff>=0.4; extra == "dev"
+Dynamic: license-file
