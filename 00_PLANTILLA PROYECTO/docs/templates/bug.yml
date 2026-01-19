@@ -1,0 +1,32 @@
+name: Bug / Incidencia
+description: Algo no cuadra o está roto (código, datos, documentación, hardware)
+title: "[BUG] "
+labels: ["type:bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: Qué pasa
+      description: Qué observas exactamente.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Qué esperabas
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Cómo reproducirlo
+      description: Pasos y rutas/commits.
+    validations:
+      required: false
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impacto
+      description: Qué bloquea o qué riesgo tiene.
+    validations:
+      required: true

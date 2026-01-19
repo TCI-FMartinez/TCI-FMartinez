@@ -1,0 +1,40 @@
+Copyright (c) 2026 Francisco José Martínez Puchades. All rights reserved.
+
+PROPRIETARY LICENSE / LICENCIA PROPIETARIA
+
+This repository, including any source code, scripts, configuration files, documentation,
+design files (CAD), drawings, data, and any associated materials (the “Software”), is
+proprietary to Francisco José Martínez Puchades.
+
+No permission is granted to use, copy, modify, merge, publish, distribute, sublicense,
+sell, or create derivative works of the Software, in whole or in part, except with prior
+written permission from Francisco José Martínez Puchades.
+
+You may not reverse engineer, decompile, or disassemble any portion of the Software,
+except to the extent such restriction is prohibited by applicable law.
+
+THIRD-PARTY COMPONENTS (PYTHON AND LIBRARIES)
+This repository may use or reference third-party components, including the Python
+programming language and third-party libraries (“Third-Party Components”).
+
+Third-Party Components are NOT owned by Francisco José Martínez Puchades and are
+licensed to you by their respective authors under their own license terms. Those terms
+may include permissions and obligations (such as attribution, license notices, and
+redistribution conditions). Nothing in this Proprietary License overrides, replaces, or
+removes any rights or obligations granted by the applicable third-party licenses for
+Third-Party Components.
+
+If you use this repository, you are responsible for:
+- Reviewing and complying with all applicable third-party licenses.
+- Installing Third-Party Components from legitimate sources.
+- Ensuring that your use and distribution (if any) complies with those licenses.
+
+DISCLAIMER OF WARRANTY
+The Software is provided “AS IS”, without warranty of any kind, express or implied,
+including but not limited to the warranties of merchantability, fitness for a particular
+purpose, and noninfringement. In no event shall the owner be liable for any claim,
+damages, or other liability, whether in an action of contract, tort, or otherwise,
+arising from, out of, or in connection with the Software or the use or other dealings
+in the Software.
+
+For permissions, contact: catarsis.75@gmail
