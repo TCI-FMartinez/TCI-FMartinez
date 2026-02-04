@@ -28,3 +28,16 @@ build
 
 # Ignora archivos de configuración SASS
 .sass-cache
+
+# Ignora CACHE
+.pytest_cache/
+pycache/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+.DS_Store
