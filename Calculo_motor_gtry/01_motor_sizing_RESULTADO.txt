@@ -1,0 +1,29 @@
+RESULTADOS – Dimensionamiento de Motor según PDF de FANUC B-65262EN/10
+=======================================================================
+  Generado: 2026-02-04 13:49:34
+
+--------- Parámetros de Entrada ---------
+   Masa móvil total: 598 kg | Gantry 70%: 418.6 kg
+   Coeficiente de fricción (μ): 0.015
+   Fuerza de fijación (Fg): 0 N
+   Fuerza de corte (Fc): 0 N
+   Diámetro del piñón: 0.0605 m
+   Relación de reducción (Z1:Z2): 5
+   Eficiencia del sistema (η): 0.97
+-->Tiempo de aceleración (ta): 0.085 s
+   Velocidad rápida (V_rapid): 140 m/s 
+   Inercia motor (JM_motor): 0.0099 kg·m²
+   Inercia reductor (J_reductor): 0.00015 kg·m²
+
+----------- Resultados -----------
+   1. Distancia por revolución (I): 0.0380 m/rev
+   2. Fuerza total (F_total): 61.60 N
+   3. Torque de carga (Tm): 0.38 N·m
+   4. Velocidad motor (Vm): 3683 min⁻¹
+   5. Inercia total (JM_total): 0.0123 kg·m²
+   6. Inercia de carga (JL): 0.0153 kg·m²
+   7. Torque de aceleración (Ta): 127.51 N·m
+   8. Torque de fricción (Tf): 0.80 N·m
+-->9. Torque total (T_total): 128.69 N·m
+   10. Aceleración: 168.07 G | 237.7 G (interpolada)
+   11. Relación de inercia (JL/JM_total): 1.24 veces

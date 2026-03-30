@@ -1,0 +1,45 @@
+RESULTADOS MOTOR V03 (comparación: método fuerzas vs método Fanuc)
+Motor: AM8072-0RH0-0000 + Reductor: MGO170-05
+
+Generado: 2026-02-05 10:41:08
+
+ENTRADAS
+    Masa total [kg]: 598.00
+    Factor gantry Gy (masa equivalente por motor) [-]: 70%
+    Masa equivalente por motor [kg]: 418.60
+    Coeficiente fricción (roz) [-]: 0.0150
+    Fuerza gibs / precarga [N]: 0.0
+    Fuerza de corte [N]: 0.0
+    Factor global de seguridad k [-]: 1.20
+    Par fricción fijo en motor Tf [N·m]: 0.80
+    Diámetro piñón [m]: 0.0605
+    Reducción motor:piñón [-]: 5.00
+    Eficiencia η [-]: 0.970
+    Aceleración lineal [m/s²]: 35.00
+    Tiempo de aceleración ta [s]: 0.085
+    Ganancia lazo posición ks [1/s]: 80.0
+    Velocidad rápida [m/min]: 114.00
+    Inercia rotor motor [kg·m²]: 0.009320
+    Inercia reductor [kg·m²]: 0.001554
+    Masa piñón [kg]: 5.00
+
+RESULTADOS - MÉTODO A (por fuerzas)
+    Fuerza fricción guías [N]: 61.60
+    Fuerza aceleración [N]: 14651.00
+    Fuerza total aplicada (incluye k) [N]: 17655.12
+--> Par total en motor (incluye Tf) [N·m]: 110.92
+
+RESULTADOS - MÉTODO B (Torque_fanuc)
+    Avance lineal por vuelta motor I [m/rev]: 0.038013
+    Velocidad motor Vm [rpm]: 2998.95
+    Velocidad Vr (inicio caída par) [rpm]: 2558.42
+    Velocidad angular ω [rad/s]: 314.05
+    Inercia total en motor JM [kg·m²]: 0.010966
+    Inercia carga reflejada JL [kg·m²]: 0.018386
+    Relación de inercia carga/total JL/JM [-]: 1.68
+    Par de aceleración Ta_fanuc [N·m]: 110.42
+    Par de carga Tm (fricción+corte) [N·m]: 0.46
+--> Par total Fanuc (incluye k y Tf) [N·m]: 111.68
+
+COMPARACIÓN
+    Par método fuerzas / Par método Fanuc [-]: 0.993

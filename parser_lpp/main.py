@@ -1,99 +1,128 @@
-
-from os import sep, path, makedirs, _exit, listdir
+import os
+import sys
 from shutil import rmtree
 
 from modules.draw_part import draw_contours
-from modules.parse_head import parse_gcode_head
 from modules.parse_parts import parse_gcode_parts
-
-def read_piece_file(directorio):
-    if not path.exists(directorio):
-        print("No existe el directorio", directorio)
-        return False
-
-    else:
-        # Lista todos los elementos en el directorio
-        elementos = listdir(directorio)
-
-        # Filtra solo los archivos (excluyendo carpetas)
-        archivos = []
-        for elemento in elementos:
-            # Verifica si el elemento es un archivo
-            if path.isfile(path.join(directorio, elemento)) and elemento.endswith('.cnc'):
-                archivos.append(elemento)
-
-        n_archivos = len(archivos)
-
-        if n_archivos > 0:
-            return archivos
-        else:
-            print("No hay archivos *.cnc")
-            return False
-            
-###################################################################################
-###################################################################################
-##########      MAIN
-
-filename = "SKRLJ-INOX-10.cnc"
-#filename = "TEST80x80P101R.lpp"
-
-draw_y_n:str = ""
-
-#### Lectura del archivo
-
-# Verificación de existencia del archivo
-if not path.exists(filename):
-    print(f"Archivo '{filename}' no encontrado.")
-    _exit(0)
-else:
-    # Lectura del archivo
-    with open(filename, "r") as text_r_file:
-        gcode_content = text_r_file.read()
-
-    # Dividir el contenido en líneas
-    file_lines = gcode_content.splitlines()
-
-# DIRECTORIO DE SALIDA
-if not path.exists("OUTPUT"):
-    makedirs("OUTPUT")
-else:
-    print("Borrando el directorio 'OUTPUT'...")
-    rmtree("OUTPUT")
-    makedirs("OUTPUT")
+from modules.cnc_to_dxf import cnc_to_single_dxf
 
 
-# Parsear el archivo G-code
-pieces_info = parse_gcode_parts(file_lines)
-file_head = parse_gcode_head(file_lines)
+def ensure_clean_dir(directory):
+    if os.path.exists(directory):
+        rmtree(directory)
+    os.makedirs(directory, exist_ok=True)
 
 
-# Mostrar las valiables de la cabecera.
-print("\nCABECERA DIC:")
-for l in file_head.items():
-    print(f"    {l[0]}: {l[1]}")
+def change_extension(directory="INPUT"):
+    renamed = 0
+
+    if not os.path.exists(directory):
+        print(f"'CAMBIO DE EXTENSIÓN' --> No existe el directorio '{directory}'")
+        return 0
+
+    for name in os.listdir(directory):
+        old_path = os.path.join(directory, name)
+        if os.path.isfile(old_path) and name.lower().endswith(".lpp"):
+            new_name = os.path.splitext(name)[0] + ".cnc"
+            new_path = os.path.join(directory, new_name)
+            os.rename(old_path, new_path)
+            renamed += 1
+
+    return renamed
 
 
-# Mostrar el formato:
-formato = file_head["FORMAT"]
-espesor = float(file_head["THICKNESS"])
-print(f"Formato X={formato[0]} y={formato[1]} espesor={espesor}")
+def files_finder(directory, extensions=(".cnc",)):
+    if not os.path.exists(directory):
+        print(f"No existe el directorio '{directory}'")
+        return []
+
+    files = []
+    for name in os.listdir(directory):
+        full_path = os.path.join(directory, name)
+        if os.path.isfile(full_path) and name.lower().endswith(extensions):
+            files.append(name)
+
+    files.sort()
+    return files
 
 
-# Buscar archivos de piezas.
-read_files = read_piece_file("OUTPUT")
-if read_files:
-    for f in read_files:
-        print(f)
-else:
-    _exit(0)
+def read_gcode_file(filename):
+    if not os.path.exists(filename):
+        raise FileNotFoundError(f"Archivo '{filename}' no encontrado.")
 
-# Mostrar las piezas encontradas y los contornos sin el numerador, espacios ni punto y coma
-print("Piezas encontradas y sus contornos:")
-while draw_y_n != "n" and draw_y_n != "y":
-    draw_y_n = input("Draw contourns? [y] or [n]: >_")
-    draw_y_n = draw_y_n.lower()
+    with open(filename, "r", encoding="utf-8", errors="ignore") as f:
+        return f.read().splitlines()
 
-if draw_y_n == "y":
-    print("Generating PNG files...")
-    draw_contours(read_files, out_WH= (800,800))
-    print("Done.")
+
+def process_piece_files(piece_files, output_dir="OUTPUT", dxf_dir="OUT_dxf"):
+    for pf in piece_files:
+        piece_path = os.path.join(output_dir, pf)
+
+        png_path = os.path.join("OUT_png", f"{os.path.splitext(pf)[0]}.png")
+
+        try:
+            ok = draw_contours([piece_path], output_filename=png_path, out_WH=(800, 800), auto_close_open=False)
+            if ok:
+                print(f"    Imagen creada: '{os.path.basename(png_path)}'")
+            else:
+                print(f"    No se pudo dibujar '{pf}'")
+        except Exception as e:
+            print(f"    Error al dibujar '{pf}': {e}")
+
+        dxf_path = os.path.join(dxf_dir, f"{os.path.splitext(pf)[0]}.dxf")
+
+        try:
+            result = cnc_to_single_dxf(piece_path, dxf_path)
+            if result:
+                print(f"    DXF creado: '{os.path.basename(dxf_path)}'")
+            else:
+                print(f"    No se pudo crear el DXF de '{pf}'")
+        except Exception as e:
+            print(f"    Error al crear DXF de '{pf}': {e}")
+
+
+def main():
+    ensure_clean_dir("OUTPUT")
+    ensure_clean_dir("OUT_dxf")
+    ensure_clean_dir("OUT_png")
+
+    renamed = change_extension("INPUT")
+    if renamed > 0:
+        print(f"Archivos renombrados de .lpp a .cnc: {renamed}")
+
+
+    files = files_finder("INPUT", extensions=(".cnc",))
+    if not files:
+        print("No hay archivos .cnc en INPUT")
+        sys.exit(0)
+
+    print(f"{len(files)} archivos .cnc encontrados en 'INPUT'.")
+
+    for f in files:
+        print(f"\nProcesando '{f}'...")
+
+        before = set(files_finder("OUTPUT", extensions=(".cnc",)))
+
+        file_lines = read_gcode_file(os.path.join("INPUT", f))
+        parse_gcode_parts(file_lines)
+
+        after = set(files_finder("OUTPUT", extensions=(".cnc",)))
+        new_piece_files = sorted(after - before)
+
+        if not new_piece_files:
+            print(f"    No se generaron piezas en 'OUTPUT' para '{f}'.")
+            continue
+
+        print(f"    {len(new_piece_files)} piezas generadas en 'OUTPUT' para '{f}'.")
+        for pf in new_piece_files:
+            print(f"    {pf}")
+
+        process_piece_files(new_piece_files, output_dir="OUTPUT", dxf_dir="OUT_dxf")
+        #draw_contours(new_piece_files, out_path="OUT_png", auto_close_open=False)
+
+        for x in new_piece_files:
+            print("   ", repr(x))
+
+
+if __name__ == "__main__":
+    main()
