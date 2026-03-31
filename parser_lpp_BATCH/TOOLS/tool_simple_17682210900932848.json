@@ -1,0 +1,452 @@
+[
+    {
+        "diameter": 32,
+        "force": 1,
+        "position": [
+            -150,
+            100
+        ],
+        "type": 2
+    },
+    {
+        "diameter": 36,
+        "force": 10,
+        "position": [
+            -100,
+            100
+        ],
+        "type": 1
+    },
+    {
+        "diameter": 32,
+        "force": 1,
+        "position": [
+            0,
+            100
+        ],
+        "type": 2
+    },
+    {
+        "diameter": 32,
+        "force": 1,
+        "position": [
+            50,
+            100
+        ],
+        "type": 2
+    },
+    {
+        "diameter": 36,
+        "force": 10,
+        "position": [
+            100,
+            100
+        ],
+        "type": 1
+    },
+    {
+        "diameter": 50,
+        "force": 2.5,
+        "position": [
+            -150,
+            50
+        ],
+        "type": 2
+    },
+    {
+        "diameter": 80,
+        "force": 7,
+        "position": [
+            -50,
+            50
+        ],
+        "type": 2
+    },
+    {
+        "diameter": 50,
+        "force": 2.5,
+        "position": [
+            50,
+            50
+        ],
+        "type": 2
+    },
+    {
+        "diameter": 80,
+        "force": 7,
+        "position": [
+            150,
+            50
+        ],
+        "type": 2
+    },
+    {
+        "diameter": 36,
+        "force": 10,
+        "position": [
+            -100,
+            0
+        ],
+        "type": 1
+    },
+    {
+        "diameter": 32,
+        "force": 1,
+        "position": [
+            0,
+            0
+        ],
+        "type": 2
+    },
+    {
+        "diameter": 80,
+        "force": 7,
+        "position": [
+            -150,
+            -50
+        ],
+        "type": 2
+    },
+    {
+        "diameter": 50,
+        "force": 2.5,
+        "position": [
+            -50,
+            -50
+        ],
+        "type": 2
+    },
+    {
+        "diameter": 80,
+        "force": 7,
+        "position": [
+            50,
+            -50
+        ],
+        "type": 2
+    },
+    {
+        "diameter": 50,
+        "force": 2.5,
+        "position": [
+            150,
+            -50
+        ],
+        "type": 2
+    },
+    {
+        "diameter": 36,
+        "force": 10,
+        "position": [
+            -100,
+            -100
+        ],
+        "type": 1
+    },
+    {
+        "diameter": 32,
+        "force": 1,
+        "position": [
+            -50,
+            -100
+        ],
+        "type": 2
+    },
+    {
+        "diameter": 32,
+        "force": 1,
+        "position": [
+            0,
+            -100
+        ],
+        "type": 2
+    },
+    {
+        "diameter": 36,
+        "force": 10,
+        "position": [
+            100,
+            -100
+        ],
+        "type": 1
+    },
+    {
+        "diameter": 32,
+        "force": 1,
+        "position": [
+            150,
+            -100
+        ],
+        "type": 2
+    },
+    {
+        "diameter": 32,
+        "force": 1,
+        "position": [
+            -675,
+            430
+        ],
+        "type": 2
+    },
+    {
+        "diameter": 36,
+        "force": 10,
+        "position": [
+            -605,
+            430
+        ],
+        "type": 1
+    },
+    {
+        "diameter": 80,
+        "force": 7,
+        "position": [
+            -650,
+            364
+        ],
+        "type": 2
+    },
+    {
+        "diameter": 50,
+        "force": 2.5,
+        "position": [
+            -612,
+            305
+        ],
+        "type": 2
+    },
+    {
+        "diameter": 36,
+        "force": 10,
+        "position": [
+            -663,
+            280
+        ],
+        "type": 1
+    },
+    {
+        "diameter": 80,
+        "force": 7,
+        "position": [
+            -625,
+            200
+        ],
+        "type": 2
+    },
+    {
+        "diameter": 36,
+        "force": 10,
+        "position": [
+            -663,
+            130
+        ],
+        "type": 1
+    },
+    {
+        "diameter": 50,
+        "force": 2.5,
+        "position": [
+            -612,
+            87
+        ],
+        "type": 2
+    },
+    {
+        "diameter": 80,
+        "force": 7,
+        "position": [
+            -650,
+            25
+        ],
+        "type": 2
+    },
+    {
+        "diameter": 50,
+        "force": 2.5,
+        "position": [
+            -612,
+            -88
+        ],
+        "type": 2
+    },
+    {
+        "diameter": 80,
+        "force": 7,
+        "position": [
+            -650,
+            -150
+        ],
+        "type": 2
+    },
+    {
+        "diameter": 50,
+        "force": 2.5,
+        "position": [
+            -612,
+            -213
+        ],
+        "type": 2
+    },
+    {
+        "diameter": 80,
+        "force": 7,
+        "position": [
+            -650,
+            -275
+        ],
+        "type": 2
+    },
+    {
+        "diameter": 50,
+        "force": 2.5,
+        "position": [
+            -612,
+            -338
+        ],
+        "type": 2
+    },
+    {
+        "diameter": 80,
+        "force": 7,
+        "position": [
+            -650,
+            -404
+        ],
+        "type": 2
+    },
+    {
+        "diameter": 32,
+        "force": 1,
+        "position": [
+            675,
+            430
+        ],
+        "type": 2
+    },
+    {
+        "diameter": 36,
+        "force": 10,
+        "position": [
+            605,
+            430
+        ],
+        "type": 1
+    },
+    {
+        "diameter": 80,
+        "force": 7,
+        "position": [
+            650,
+            364
+        ],
+        "type": 2
+    },
+    {
+        "diameter": 50,
+        "force": 2.5,
+        "position": [
+            612,
+            305
+        ],
+        "type": 2
+    },
+    {
+        "diameter": 36,
+        "force": 10,
+        "position": [
+            663,
+            280
+        ],
+        "type": 1
+    },
+    {
+        "diameter": 80,
+        "force": 7,
+        "position": [
+            625,
+            200
+        ],
+        "type": 2
+    },
+    {
+        "diameter": 36,
+        "force": 10,
+        "position": [
+            663,
+            130
+        ],
+        "type": 1
+    },
+    {
+        "diameter": 50,
+        "force": 2.5,
+        "position": [
+            612,
+            87
+        ],
+        "type": 2
+    },
+    {
+        "diameter": 80,
+        "force": 7,
+        "position": [
+            650,
+            25
+        ],
+        "type": 2
+    },
+    {
+        "diameter": 50,
+        "force": 2.5,
+        "position": [
+            612,
+            -88
+        ],
+        "type": 2
+    },
+    {
+        "diameter": 80,
+        "force": 7,
+        "position": [
+            650,
+            -150
+        ],
+        "type": 2
+    },
+    {
+        "diameter": 50,
+        "force": 2.5,
+        "position": [
+            612,
+            -213
+        ],
+        "type": 2
+    },
+    {
+        "diameter": 80,
+        "force": 7,
+        "position": [
+            650,
+            -275
+        ],
+        "type": 2
+    },
+    {
+        "diameter": 50,
+        "force": 2.5,
+        "position": [
+            612,
+            -338
+        ],
+        "type": 2
+    },
+    {
+        "diameter": 80,
+        "force": 7,
+        "position": [
+            650,
+            -404
+        ],
+        "type": 2
+    }
+]
