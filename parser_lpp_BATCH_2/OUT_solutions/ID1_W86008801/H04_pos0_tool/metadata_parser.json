@@ -1,0 +1,42 @@
+{
+  "piece_file": "SCARA/OUT_cnc/ID1_W86008801.cnc",
+  "piece_id": "1",
+  "piece_reference": "W86008801",
+  "piece_material": "Acero al carbono N2",
+  "piece_thickness": 3.0,
+  "piece_center_approx": [
+    15.049999999999999,
+    60.324999999999996
+  ],
+  "tool_file": "TOOLS/processed/H04_pos0_tool_with_polygons.json",
+  "tool_elements_total": 33,
+  "solution_json": "OUT_solutions/ID1_W86008801/H04_pos0_tool/ref_ID1_W86008801_solution.json",
+  "solution_found": true,
+  "solution_geometry_found": false,
+  "solution_valid": false,
+  "status": "solver_error",
+  "tool_center_approx": null,
+  "center_distance_approx": null,
+  "score_distance_centers_approx": null,
+  "tool_active_indexes": [],
+  "tool_active_count": 0,
+  "run_ok": false,
+  "run_executed": true,
+  "run_reason": "compute_ref devolvió código -5",
+  "returncode_raw": 4294967291,
+  "returncode_signed": -5,
+  "solver_error_flag": -5,
+  "time_limit_hit": true,
+  "solver_xmin": [
+    -100.0,
+    -89.3306254008812,
+    2.015677120037909
+  ],
+  "solver_fxmin": 1183.5984354966524,
+  "solver_solution_saved_to": "ref_ID1_W86008801_solution.json",
+  "stdout": "Stopping: time limit (2.0s) exceeded at generation 12\n\n========================================================================\nCost function evaluation\n========================================================================\nxmin: [-100.0, -89.3306254008812, 2.015677120037909]\nfxmin: 1183.5984354966524\nFlag: -5 (Infeasible - no actuator fits)\n========================================================================\nSolution saved to: ref_ID1_W86008801_solution.json\nError flag: -5",
+  "stderr": "",
+  "combo_dir": "OUT_solutions/ID1_W86008801/H04_pos0_tool",
+  "solution_png": "OUT_solutions\\ID1_W86008801\\H04_pos0_tool\\ID1_W86008801__H04_pos0_tool.png",
+  "solution_png_global": "OUT_solutions\\png\\ID1_W86008801__H04_pos0_tool.png"
+}

@@ -1,0 +1,43 @@
+# Informe de resultados de herramientas
+
+## Resumen general
+
+- Combinaciones evaluadas: 592
+- Piezas únicas: 83
+- Herramientas evaluadas: H04_pos0_tool, H04_pos1_tool, tool_A, tool_B
+- Soluciones válidas: 484 (81.76%)
+- Soluciones no válidas: 108 (18.24%)
+- Tiempo de cálculo 'compute_ref' por pieza y herramienta limitado a: 2 segundos.
+
+### Estados
+
+- infeasible_cannot_lift: 78
+- solver_error: 30
+- valid: 484
+
+## Rendimiento por herramienta
+
+| Herramienta | Intentos | Válidas | No válidas | Éxito % | Activos medios válidos | Activos medios no válidos |
+|---|---:|---:|---:|---:|---:|---:|
+| H04_pos1_tool | 148 | 135 | 13 | 91.22 | 11.47 | 7.62 |
+| H04_pos0_tool | 148 | 134 | 14 | 90.54 | 11.70 | 7.07 |
+| tool_B | 148 | 111 | 37 | 75.00 | 6.65 | 9.81 |
+| tool_A | 148 | 104 | 44 | 70.27 | 6.39 | 8.48 |
+
+## Estado por pieza
+
+Ver 'fichero'.xlsx
+
+## Recomendaciones
+
+- Hay piezas sin ninguna solución válida: W56240401, W56240402, W56397703A, W56397725, W56410217, W86027601. Conviene diseñar una herramienta dedicada o una variante compacta para este subconjunto.
+- Hay varios fallos por 'cannot_lift' con la herramienta completamente activada. Esto apunta a falta de capacidad de elevación o mala distribución de apoyo, no a falta de cobertura geométrica.
+- Para esas herramientas conviene aumentar la capacidad útil por punto, redistribuir los apoyos hacia zonas con más brazo resistente y añadir más puntos de agarre efectivos en la periferia o en zonas de mayor momento.
+- Los casos con flag -5 ('no actuator fits') indican un problema geométrico: paso demasiado grande, huella poco adaptable o interferencia con la pieza.
+- Para estos casos conviene crear una variante compacta: menor paso entre actuadores, filas desplazadas, módulos más pequeños o una subherramienta específica para piezas estrechas o con zonas útiles muy localizadas.
+- Patrón dominante detectado en 9 piezas: fallan tool_A, tool_B y resuelve H04_pos0_tool, H04_pos1_tool. Esto sugiere usar esa familia válida como referencia de rediseño.
+
+## Piezas con una única herramienta válida
+
+- W56240404: válida tool_B; fallan H04_pos0_tool, H04_pos1_tool, tool_A
+- W56322224: válida tool_B; fallan H04_pos0_tool, H04_pos1_tool, tool_A

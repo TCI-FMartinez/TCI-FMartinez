@@ -1,0 +1,47 @@
+{
+  "piece_file": "OUT_cnc/ID1_W56397706.cnc",
+  "piece_id": "1",
+  "piece_reference": "W56397706",
+  "piece_material": "Acero al carbono N2",
+  "piece_thickness": 4.0,
+  "piece_center_approx": [
+    31.274999999999995,
+    331.54499999999996
+  ],
+  "tool_file": "TOOLS/processed/H04_pos1_tool_with_polygons.json",
+  "tool_elements_total": 33,
+  "solution_json": "OUT_solutions/ID1_W56397706/H04_pos1_tool/ref_ID1_W56397706_solution.json",
+  "solution_found": true,
+  "solution_geometry_found": true,
+  "solution_valid": true,
+  "status": "valid",
+  "tool_center_approx": null,
+  "center_distance_approx": null,
+  "score_distance_centers_approx": null,
+  "tool_active_indexes": [
+    4,
+    9,
+    14,
+    19
+  ],
+  "tool_active_count": 4,
+  "run_ok": true,
+  "run_executed": true,
+  "run_reason": null,
+  "returncode_raw": 0,
+  "returncode_signed": 0,
+  "solver_error_flag": 0,
+  "time_limit_hit": true,
+  "solver_xmin": [
+    -19.815269397176344,
+    327.9145308846283,
+    0.032347630138777506
+  ],
+  "solver_fxmin": -11508.579906568099,
+  "solver_solution_saved_to": "ref_ID1_W56397706_solution.json",
+  "stdout": "Stopping: time limit (2.0s) exceeded at generation 11\n\n========================================================================\nCost function evaluation\n========================================================================\nxmin: [-19.815269397176344, 327.9145308846283, 0.032347630138777506]\nfxmin: -11508.579906568099\nFlag: 0 (Feasible solution)\n========================================================================\nSolution saved to: ref_ID1_W56397706_solution.json\nError flag: 0",
+  "stderr": "",
+  "combo_dir": "OUT_solutions/ID1_W56397706/H04_pos1_tool",
+  "solution_png": "OUT_solutions\\ID1_W56397706\\H04_pos1_tool\\ID1_W56397706__H04_pos1_tool.png",
+  "solution_png_global": "OUT_solutions\\png\\ID1_W56397706__H04_pos1_tool.png"
+}

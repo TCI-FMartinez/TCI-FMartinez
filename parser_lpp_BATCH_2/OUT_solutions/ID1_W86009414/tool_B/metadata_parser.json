@@ -1,0 +1,45 @@
+{
+  "piece_file": "SCARA/OUT_cnc/ID1_W86009414.cnc",
+  "piece_id": "1",
+  "piece_reference": "W86009414",
+  "piece_material": "Galvanizado",
+  "piece_thickness": 2.0,
+  "piece_center_approx": [
+    52.055,
+    29.299999999999997
+  ],
+  "tool_file": "TOOLS/processed/tool_B_with_polygons.json",
+  "tool_elements_total": 11,
+  "solution_json": "OUT_solutions/ID1_W86009414/tool_B/ref_ID1_W86009414_solution.json",
+  "solution_found": true,
+  "solution_geometry_found": true,
+  "solution_valid": true,
+  "status": "valid",
+  "tool_center_approx": null,
+  "center_distance_approx": null,
+  "score_distance_centers_approx": null,
+  "tool_active_indexes": [
+    0,
+    8
+  ],
+  "tool_active_count": 2,
+  "run_ok": true,
+  "run_executed": true,
+  "run_reason": null,
+  "returncode_raw": 0,
+  "returncode_signed": 0,
+  "solver_error_flag": 0,
+  "time_limit_hit": true,
+  "solver_xmin": [
+    93.54822610694511,
+    27.874816403322434,
+    3.1062001927319103
+  ],
+  "solver_fxmin": -1013.1710802226448,
+  "solver_solution_saved_to": "ref_ID1_W86009414_solution.json",
+  "stdout": "Stopping: time limit (2.0s) exceeded at generation 27\n\n========================================================================\nCost function evaluation\n========================================================================\nxmin: [93.54822610694511, 27.874816403322434, 3.1062001927319103]\nfxmin: -1013.1710802226448\nFlag: 0 (Feasible solution)\n========================================================================\nSolution saved to: ref_ID1_W86009414_solution.json\nError flag: 0",
+  "stderr": "",
+  "combo_dir": "OUT_solutions/ID1_W86009414/tool_B",
+  "solution_png": "OUT_solutions\\ID1_W86009414\\tool_B\\ID1_W86009414__tool_B.png",
+  "solution_png_global": "OUT_solutions\\png\\ID1_W86009414__tool_B.png"
+}

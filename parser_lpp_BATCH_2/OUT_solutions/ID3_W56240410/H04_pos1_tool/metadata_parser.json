@@ -1,0 +1,46 @@
+{
+  "piece_file": "SCARA/OUT_cnc/ID3_W56240410.cnc",
+  "piece_id": "3",
+  "piece_reference": "W56240410",
+  "piece_material": "Acero al carbono N2",
+  "piece_thickness": 2.0,
+  "piece_center_approx": [
+    45.934999999999945,
+    129.395
+  ],
+  "tool_file": "TOOLS/processed/H04_pos1_tool_with_polygons.json",
+  "tool_elements_total": 33,
+  "solution_json": "OUT_solutions/ID3_W56240410/H04_pos1_tool/ref_ID3_W56240410_solution.json",
+  "solution_found": true,
+  "solution_geometry_found": true,
+  "solution_valid": true,
+  "status": "valid",
+  "tool_center_approx": null,
+  "center_distance_approx": null,
+  "score_distance_centers_approx": null,
+  "tool_active_indexes": [
+    4,
+    9,
+    14
+  ],
+  "tool_active_count": 3,
+  "run_ok": true,
+  "run_executed": true,
+  "run_reason": null,
+  "returncode_raw": 0,
+  "returncode_signed": 0,
+  "solver_error_flag": 0,
+  "time_limit_hit": true,
+  "solver_xmin": [
+    -14.12983554329431,
+    95.45511065232598,
+    -0.23591564593200887
+  ],
+  "solver_fxmin": -3667.02922926073,
+  "solver_solution_saved_to": "ref_ID3_W56240410_solution.json",
+  "stdout": "Stopping: time limit (2.0s) exceeded at generation 11\n\n========================================================================\nCost function evaluation\n========================================================================\nxmin: [-14.12983554329431, 95.45511065232598, -0.23591564593200887]\nfxmin: -3667.02922926073\nFlag: 0 (Feasible solution)\n========================================================================\nSolution saved to: ref_ID3_W56240410_solution.json\nError flag: 0",
+  "stderr": "",
+  "combo_dir": "OUT_solutions/ID3_W56240410/H04_pos1_tool",
+  "solution_png": "OUT_solutions\\ID3_W56240410\\H04_pos1_tool\\ID3_W56240410__H04_pos1_tool.png",
+  "solution_png_global": "OUT_solutions\\png\\ID3_W56240410__H04_pos1_tool.png"
+}
