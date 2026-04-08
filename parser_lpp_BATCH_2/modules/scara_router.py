@@ -112,42 +112,37 @@ def route_piece_outputs(
     piece_meta: dict[str, Any],
     filters: dict[str, Any] | None = None,
     *,
-    default_cnc_dir: str | Path = "OUT_cnc",
-    default_dxf_dir: str | Path = "OUT_dxf",
-    default_png_dir: str | Path = "OUT_png",
+    anthro_root: str | Path = "ANTHRO",
     scara_root: str | Path = "SCARA",
     move_cnc: bool = True,
 ) -> dict[str, Any]:
     """
-    Si la pieza cumple filtros, redirige sus salidas a:
-        SCARA/OUT_cnc
-        SCARA/OUT_dxf
-        SCARA/OUT_png
+    Redirige cada pieza a su carpeta de robot:
+        SCARA/OUT_cnc, SCARA/OUT_dxf, SCARA/OUT_png
+        ANTHRO/OUT_cnc, ANTHRO/OUT_dxf, ANTHRO/OUT_png
 
-    Si no cumple, mantiene:
-        OUTPUT
-        OUT_dxf
-        OUT_png
+    Si la pieza pasa filtros de SCARA se clasifica como SCARA.
+    En caso contrario va a ANTHRO.
 
     Devuelve un dict con rutas finales y el resultado del filtrado.
     """
     piece_path = Path(piece_path)
 
-    default_cnc_dir = Path(default_cnc_dir)
-    default_dxf_dir = Path(default_dxf_dir)
-    default_png_dir = Path(default_png_dir)
+    anthro_root = Path(anthro_root)
     scara_root = Path(scara_root)
 
     passed, reasons = piece_passes_scara_filters(piece_meta, filters)
 
     if passed:
+        robot = "SCARA"
         cnc_dir = scara_root / "OUT_cnc"
         dxf_dir = scara_root / "OUT_dxf"
         png_dir = scara_root / "OUT_png"
     else:
-        cnc_dir = default_cnc_dir
-        dxf_dir = default_dxf_dir
-        png_dir = default_png_dir
+        robot = "ANTHRO"
+        cnc_dir = anthro_root / "OUT_cnc"
+        dxf_dir = anthro_root / "OUT_dxf"
+        png_dir = anthro_root / "OUT_png"
 
     cnc_dir.mkdir(parents=True, exist_ok=True)
     dxf_dir.mkdir(parents=True, exist_ok=True)
@@ -170,6 +165,7 @@ def route_piece_outputs(
 
     return {
         "passed": passed,
+        "robot": robot,
         "reasons": reasons,
         "piece_path": str(final_piece_path),
         "dxf_path": str(final_dxf_path),

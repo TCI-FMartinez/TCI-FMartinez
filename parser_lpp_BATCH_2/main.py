@@ -21,11 +21,13 @@ from __future__ import annotations
 import ast
 import json
 import math
+import copy
 import os
 import re
 import shutil
 import subprocess
 import sys
+from contextlib import contextmanager
 from pathlib import Path
 from shutil import rmtree
 from typing import Any
@@ -36,16 +38,10 @@ from modules.draw_part import contour_to_points, contours_bbox, draw_contours
 from modules.scara_router import route_piece_outputs
 from modules.draw_solution_overlay import draw_solution_overlay_png
 from modules.generate_tool_report import generate_tool_report_files
+from modules.cnc_to_dxf import parse_cnc_contours, simplify_contour_geometry
+from modules.cnc_to_dxf import cnc_to_single_dxf
+from module_ai2.load_slot import load_slot as load_slot_script
 
-try:
-    from modules.cnc_to_dxf import parse_cnc_contours, simplify_contour_geometry
-except ImportError:
-    from modules.cnc_to_dxf_combined import parse_cnc_contours, simplify_contour_geometry
-
-try:
-    from modules.cnc_to_dxf import cnc_to_single_dxf
-except ImportError:
-    from modules.cnc_to_dxf_combined import cnc_to_single_dxf
 
 # -----------------------------------------------------------------------------
 # Configuración general y filtros de clasificación
@@ -53,15 +49,81 @@ except ImportError:
 
 META_PATTERN = re.compile(r"^\(\s*META\s+([A-Z0-9_]+)\s*:\s*(.*?)\s*\)$", re.IGNORECASE)
 
-# Configura aqui los filtros de SCARA.
-SCARA_FILTERS = {
-    "max_bbox_x": 500.0,
-    "max_bbox_y": 500.0,
-    "max_weight_kg": 6.0,
-    "ferromagnetic": None,
-    # "material_family_any": ["STEEL", "STAINLESS"],
-    # "material_contains_any": ["INOX", "S235"],
+LOAD_SLOT_CACHE_DIR = Path("OUT_ref_cache")
+INTERNAL_TMP_ROOT = Path("_internal")
+PARSED_PARTS_TMP_DIR = INTERNAL_TMP_ROOT / "parsed_parts"
+_LOAD_SLOT_REF_CACHE: dict[str, list[dict[str, Any]] | None] = {}
+
+CONFIG_PATH = Path(__file__).with_name("config.json")
+DEFAULT_CONFIG: dict[str, Any] = {
+    "compute_ref": {
+        "max_compute_time": 2,
+        "enhance_opti": 1,
+    },
+    "robots": {
+        "anthro": {
+            "root_dir": "ANTHRO",
+        },
+        "scara": {
+            "root_dir": "SCARA",
+            "filters": {
+                "max_bbox_x": 500.0,
+                "max_bbox_y": 500.0,
+                "max_weight_kg": 6.0,
+                "ferromagnetic": None,
+                "material_family_any": [],
+                "material_contains_any": [],
+            },
+        },
+    },
+    "materials": {
+        "known": {
+            "ALUMINUM": {
+                "aliases": ["ALUM", "ALUMINIO", "ALMG", "5083", "5754", "1050"],
+                "density_g_cm3": 2.70,
+                "ferromagnetic": False,
+            },
+            "BRASS": {
+                "aliases": ["LATON", "BRASS"],
+                "density_g_cm3": 8.50,
+                "ferromagnetic": False,
+            },
+            "COPPER": {
+                "aliases": ["COBRE", "COPPER"],
+                "density_g_cm3": 8.96,
+                "ferromagnetic": False,
+            },
+            "STAINLESS_FERRO": {
+                "aliases": ["INOX 430", "AISI 430", "AISI430", "INOX 409", "AISI 409", "AISI409", "INOX 441", "AISI 441", "AISI441", "430", "409", "441"],
+                "density_g_cm3": 7.90,
+                "ferromagnetic": True,
+            },
+            "STAINLESS": {
+                "aliases": ["INOX", "STAINLESS", "AISI 304", "AISI304", "AISI 316", "AISI316"],
+                "density_g_cm3": 7.90,
+                "ferromagnetic": False,
+            },
+            "STEEL": {
+                "aliases": ["FE", "S235", "S275", "S355", "ACERO", "ACERO AL CARBONO", "STEEL", "HIERRO", "GALV", "DC01", "DD11"],
+                "density_g_cm3": 7.85,
+                "ferromagnetic": True,
+            },
+        }
+    },
 }
+_RUNTIME_CONFIG_CACHE: dict[str, Any] | None = None
+
+
+@contextmanager
+def pushd(directory: str | Path):
+    """Cambia temporalmente de directorio y restaura el anterior al salir."""
+    previous = Path.cwd()
+    os.makedirs(directory, exist_ok=True)
+    os.chdir(directory)
+    try:
+        yield
+    finally:
+        os.chdir(previous)
 
 
 def ensure_clean_dir(directory: str) -> None:
@@ -71,11 +133,31 @@ def ensure_clean_dir(directory: str) -> None:
     os.makedirs(directory, exist_ok=True)
 
 
-def ensure_clean_scara_dirs(scara_root: str = "SCARA") -> None:
-    """Prepara la estructura de salida específica para SCARA."""
-    ensure_clean_dir(os.path.join(scara_root, "OUT_cnc"))
-    ensure_clean_dir(os.path.join(scara_root, "OUT_dxf"))
-    ensure_clean_dir(os.path.join(scara_root, "OUT_png"))
+def ensure_clean_robot_dirs(robot_root: str | Path) -> None:
+    """Prepara la estructura de salida de un robot concreto."""
+    robot_root = str(robot_root)
+    ensure_clean_dir(os.path.join(robot_root, "OUT_cnc"))
+    ensure_clean_dir(os.path.join(robot_root, "OUT_dxf"))
+    ensure_clean_dir(os.path.join(robot_root, "OUT_png"))
+    ensure_clean_dir(os.path.join(robot_root, "OUT_solutions"))
+
+
+def get_robot_runtime_settings() -> dict[str, Any]:
+    """Devuelve raíces de salida y filtros por robot desde config.json."""
+    config = load_runtime_config()
+    robots = config.get("robots", {}) if isinstance(config, dict) else {}
+    anthro_cfg = robots.get("anthro", {}) if isinstance(robots.get("anthro", {}), dict) else {}
+    scara_cfg = robots.get("scara", {}) if isinstance(robots.get("scara", {}), dict) else {}
+
+    anthro_root = str(anthro_cfg.get("root_dir") or "ANTHRO").strip() or "ANTHRO"
+    scara_root = str(scara_cfg.get("root_dir") or "SCARA").strip() or "SCARA"
+    scara_filters = scara_cfg.get("filters", {}) if isinstance(scara_cfg.get("filters", {}), dict) else {}
+
+    return {
+        "anthro_root": anthro_root,
+        "scara_root": scara_root,
+        "scara_filters": copy.deepcopy(scara_filters),
+    }
 
 
 def change_extension(directory: str = "INPUT") -> int:
@@ -117,23 +199,63 @@ def _safe_float(value):
         return None
 
 
+def _deep_merge_dict(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    """Fusiona diccionarios anidados sin perder claves por defecto."""
+    for key, value in override.items():
+        if isinstance(value, dict) and isinstance(base.get(key), dict):
+            _deep_merge_dict(base[key], value)
+        else:
+            base[key] = value
+    return base
+
+
+def load_runtime_config(config_path: str | Path = CONFIG_PATH) -> dict[str, Any]:
+    """Carga config.json y lo mezcla con valores por defecto."""
+    global _RUNTIME_CONFIG_CACHE
+    if _RUNTIME_CONFIG_CACHE is not None:
+        return copy.deepcopy(_RUNTIME_CONFIG_CACHE)
+
+    config = copy.deepcopy(DEFAULT_CONFIG)
+    config_path = Path(config_path)
+    if config_path.exists():
+        try:
+            user_config = _load_json(config_path)
+            if isinstance(user_config, dict):
+                _deep_merge_dict(config, user_config)
+            else:
+                print(f"Aviso: '{config_path}' no contiene un objeto JSON. Se usarán los valores por defecto.")
+        except Exception as exc:
+            print(f"Aviso: no se pudo leer '{config_path}': {exc}. Se usarán los valores por defecto.")
+
+    _RUNTIME_CONFIG_CACHE = config
+    return copy.deepcopy(config)
+
+
+def _material_specs_from_config() -> list[tuple[str, dict[str, Any]]]:
+    """Devuelve materiales conocidos definidos en config.json manteniendo el orden."""
+    config = load_runtime_config()
+    known = config.get("materials", {}).get("known", {})
+    if isinstance(known, dict):
+        return [(str(name).upper().strip(), spec) for name, spec in known.items() if isinstance(spec, dict)]
+    return []
+
+
 def material_profile(material_raw: str) -> dict[str, object]:
-    """Clasifica material, densidad aproximada y ferromagnetismo de forma heurística."""
+    """Clasifica material con alias configurables y devuelve sus propiedades."""
     material = (material_raw or "").upper().strip()
 
-    if any(token in material for token in ["ALUM", "ALUMINIO", "ALMG", "5083", "5754", "1050"]):
-        return {"density_g_cm3": 2.70, "ferromagnetic": False, "family": "ALUMINUM"}
-    if any(token in material for token in ["LATON", "BRASS"]):
-        return {"density_g_cm3": 8.50, "ferromagnetic": False, "family": "BRASS"}
-    if any(token in material for token in ["COBRE", "COPPER"]):
-        return {"density_g_cm3": 8.96, "ferromagnetic": False, "family": "COPPER"}
-    if "INOX" in material or "STAINLESS" in material or "AISI 304" in material or "AISI304" in material or "AISI 316" in material or "AISI316" in material:
-        ferro = False
-        if any(token in material for token in ["430", "409", "441"]):
-            ferro = True
-        return {"density_g_cm3": 7.90, "ferromagnetic": ferro, "family": "STAINLESS"}
-    if any(token in material for token in ["S235", "S275", "S355", "FE", "ACERO", "STEEL", "HIERRO", "GALV", "DC01", "DD11"]):
-        return {"density_g_cm3": 7.85, "ferromagnetic": True, "family": "STEEL"}
+    for family_name, spec in _material_specs_from_config():
+        aliases = spec.get("aliases", [])
+        if not isinstance(aliases, list):
+            continue
+        normalized_aliases = [str(token).upper().strip() for token in aliases if str(token).strip()]
+        if any(token in material for token in normalized_aliases):
+            return {
+                "density_g_cm3": _safe_float(spec.get("density_g_cm3")),
+                "ferromagnetic": _safe_bool(spec.get("ferromagnetic")),
+                "family": family_name or material or "UNKNOWN",
+            }
+
     return {"density_g_cm3": 7.85, "ferromagnetic": None, "family": material or "UNKNOWN"}
 
 
@@ -262,26 +384,36 @@ def rewrite_piece_header(piece_path: str | Path, source_file: str, head_info: di
     }
 
 
-def process_generated_pieces(piece_files: list[str], source_filename: str, head_info: dict[str, object]) -> None:
-    """Procesa cada pieza nueva: cabecera, routing SCARA, PNG y DXF."""
+def process_generated_pieces(
+    piece_files: list[str],
+    source_filename: str,
+    head_info: dict[str, object],
+    staging_dir: str | Path = PARSED_PARTS_TMP_DIR,
+) -> None:
+    """Procesa cada pieza nueva desde una carpeta temporal interna: cabecera, routing por robot, PNG y DXF."""
+    robot_settings = get_robot_runtime_settings()
+    staging_dir = Path(staging_dir)
+    anthro_root = robot_settings["anthro_root"]
+    scara_root = robot_settings["scara_root"]
+    scara_filters = robot_settings["scara_filters"]
+
     for pf in piece_files:
-        original_piece_path = os.path.join("OUT_cnc", pf)
+        original_piece_path = str(staging_dir / pf)
         piece_meta = rewrite_piece_header(original_piece_path, source_filename, head_info)
         route = route_piece_outputs(
             original_piece_path,
             piece_meta,
-            SCARA_FILTERS,
-            default_cnc_dir="OUT_cnc",
-            default_dxf_dir="OUT_dxf",
-            default_png_dir="OUT_png",
-            scara_root="SCARA",
+            scara_filters,
+            anthro_root=anthro_root,
+            scara_root=scara_root,
             move_cnc=True,
         )
 
-        if route["passed"]:
+        if route["robot"] == "SCARA":
             print(f"    SCARA OK -> {pf}")
         else:
-            print(f"    SCARA NO -> {pf} | {'; '.join(route['reasons'])}")
+            detail = f" | {'; '.join(route['reasons'])}" if route["reasons"] else ""
+            print(f"    ANTHRO -> {pf}{detail}")
 
         piece_path = route["piece_path"]
         png_path = route["png_path"]
@@ -304,6 +436,187 @@ def process_generated_pieces(piece_files: list[str], source_filename: str, head_
                 print(f"    Error al crear DXF de '{pf}': {e}")
         except Exception as e:
             print(f"    Error al crear DXF de '{pf}': {e}")
+
+
+def process_robot_out_cnc_with_tools(
+    robot_label: str,
+    cnc_dir: str,
+    tools_dir: str,
+    processed_tools_subdir: str,
+    max_compute_time: int,
+    enhance_opti: int,
+    solutions_dir: str,
+) -> list[dict[str, Any]]:
+    """Ejecuta compute_ref.exe para un directorio CNC concreto de un robot."""
+    cnc_files = [os.path.join(cnc_dir, name) for name in files_finder(cnc_dir, extensions=(".cnc",))]
+    if not cnc_files:
+        print(f"No se encontraron CNCs en '{cnc_dir}' para {robot_label}")
+        return []
+
+    tool_names = _tool_candidates(tools_dir)
+    if not tool_names:
+        print(f"No se encontraron herramientas JSON en '{tools_dir}'")
+        return []
+
+    processed_tools_dir = os.path.join(tools_dir, processed_tools_subdir)
+    os.makedirs(processed_tools_dir, exist_ok=True)
+    ensure_clean_dir(solutions_dir)
+    png_dir = os.path.join(solutions_dir, "png")
+    os.makedirs(png_dir, exist_ok=True)
+
+    print(f"Procesando {len(cnc_files)} CNC(s) de {robot_label} con {len(tool_names)} herramienta(s) usando compute_ref.exe...")
+
+    summary: list[dict[str, Any]] = []
+
+    for cnc_path in cnc_files:
+        piece_stem = Path(cnc_path).stem
+        piece_dir = os.path.join(solutions_dir, piece_stem)
+        os.makedirs(piece_dir, exist_ok=True)
+
+        material_json_path = os.path.join(piece_dir, "material.json")
+        try:
+            piece_material_payload = build_material_json_for_piece(
+                cnc_path,
+                material_json_path,
+            )
+        except Exception as exc:
+            print(f"    No se pudo generar material JSON para '{cnc_path}': {exc}")
+            summary.append(
+                {
+                    "robot": robot_label,
+                    "piece_file": cnc_path,
+                    "tool_file": None,
+                    "solution_found": False,
+                    "run_ok": False,
+                    "run_reason": f"Error generando material JSON: {exc}",
+                    "combo_dir": piece_dir,
+                }
+            )
+            continue
+
+        for tool_name in tool_names:
+            tool_path = os.path.join(tools_dir, tool_name)
+            tool_stem = Path(tool_name).stem
+            combo_dir = os.path.join(piece_dir, tool_stem)
+            os.makedirs(combo_dir, exist_ok=True)
+
+            try:
+                processed_tool_path = build_tool_polygons(tool_path, processed_tools_dir)
+            except Exception as exc:
+                print(f"    Saltando herramienta '{tool_name}' por error en el paso de generación de polígonos: {exc}")
+                summary.append(
+                    {
+                        "robot": robot_label,
+                        "piece_file": cnc_path,
+                        "tool_file": tool_path,
+                        "solution_found": False,
+                        "run_ok": False,
+                        "run_reason": f"Error generando polígonos: {exc}",
+                        "combo_dir": combo_dir,
+                    }
+                )
+                continue
+
+            ref_json_path = os.path.join(combo_dir, f"ref_{piece_stem}.json")
+            try:
+                build_ref_json_for_piece(cnc_path, ref_json_path)
+            except Exception as exc:
+                print(f"    No se pudo generar ref JSON para '{cnc_path}': {exc}")
+                summary.append(
+                    {
+                        "robot": robot_label,
+                        "piece_file": cnc_path,
+                        "tool_file": tool_path,
+                        "solution_found": False,
+                        "run_ok": False,
+                        "run_reason": f"Error generando ref JSON: {exc}",
+                        "combo_dir": combo_dir,
+                    }
+                )
+                continue
+
+            print(f"  [{robot_label}] CNC: {cnc_path}  |  Herramienta: {tool_name}")
+            run_result = run_computeref(
+                ref_file=ref_json_path,
+                tool_file=processed_tool_path,
+                material_file=material_json_path,
+                workdir=combo_dir,
+                max_compute_time=max_compute_time,
+                enhance_opti=enhance_opti,
+            )
+
+            if not run_result["ok"]:
+                print(f"    compute_ref no completado: {run_result.get('reason')}")
+                if run_result.get("stdout"):
+                    print(f"    stdout: {run_result['stdout'].strip()}")
+                if run_result.get("stderr"):
+                    print(f"    stderr: {run_result['stderr'].strip()}")
+            elif run_result.get("stdout"):
+                print(f"    salida: {run_result['stdout'].strip()}")
+
+            solution_json_path = discover_solution_json(combo_dir, ref_json_path, run_result=run_result)
+            metadata = _build_solution_metadata(
+                piece_cnc=cnc_path,
+                ref_json_path=ref_json_path,
+                tool_json_path=processed_tool_path,
+                solution_json_path=solution_json_path,
+                combo_dir=combo_dir,
+                run_result=run_result,
+            )
+            metadata["robot"] = robot_label
+            metadata["material_json"] = str(Path(material_json_path).as_posix())
+            metadata["material_json_payload"] = copy.deepcopy(piece_material_payload)
+
+            solver_metadata_path = os.path.join(combo_dir, "metadata.json")
+            solver_metadata = None
+            if os.path.exists(solver_metadata_path):
+                try:
+                    solver_metadata = _load_json(solver_metadata_path)
+                except Exception:
+                    solver_metadata = None
+
+            overlay_name = f"{piece_stem}__{tool_stem}.png"
+            combo_overlay_path = os.path.join(combo_dir, overlay_name)
+            global_overlay_path = os.path.join(png_dir, overlay_name)
+
+            should_render = bool(solution_json_path and os.path.exists(solution_json_path))
+            metadata_for_draw = dict(metadata)
+            if solver_metadata is not None:
+                metadata_for_draw.update(solver_metadata)
+
+            if should_render:
+                try:
+                    overlay_ok_combo = _draw_solution_overlay(
+                        cnc_path,
+                        processed_tool_path,
+                        solution_json_path,
+                        combo_overlay_path,
+                        metadata=metadata_for_draw,
+                    )
+                    overlay_ok_global = _draw_solution_overlay(
+                        cnc_path,
+                        processed_tool_path,
+                        solution_json_path,
+                        global_overlay_path,
+                        metadata=metadata_for_draw,
+                    )
+                    metadata["solution_png"] = combo_overlay_path if overlay_ok_combo else None
+                    metadata["solution_png_global"] = global_overlay_path if overlay_ok_global else None
+                except Exception as exc:
+                    metadata["solution_png"] = None
+                    metadata["solution_png_global"] = None
+                    metadata["png_error"] = str(exc)
+                    print(f"    Error dibujando overlay: {exc}")
+            else:
+                metadata["solution_png"] = None
+                metadata["solution_png_global"] = None
+
+            parser_metadata_path = os.path.join(combo_dir, "metadata_parser.json")
+            _dump_json(parser_metadata_path, metadata)
+            summary.append(metadata)
+
+    _dump_json(os.path.join(solutions_dir, "summary.json"), summary)
+    return summary
 
 
 def read_gcode_file(filename: str) -> list[str]:
@@ -334,6 +647,51 @@ def _read_piece_header(piece_path: str | Path) -> tuple[str, str, dict[str, str]
             meta[match.group(1).upper()] = match.group(2).strip()
 
     return piece_id, piece_name, meta
+
+
+def _safe_bool(value: Any) -> bool | None:
+    """Interpreta booleanos expresados como texto en metadata o JSON."""
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return None
+    text = str(value).strip().upper()
+    if text in {"1", "TRUE", "YES", "Y", "SI", "S"}:
+        return True
+    if text in {"0", "FALSE", "NO", "N"}:
+        return False
+    return None
+
+
+def build_material_json_for_piece(
+    piece_cnc: str | Path,
+    output_path: str | Path,
+) -> dict[str, Any]:
+    """Genera el material.json real de una pieza a partir de su metadata."""
+    _, _, piece_meta = _read_piece_header(piece_cnc)
+
+    material = str(piece_meta.get("MATERIAL") or "").strip()
+    thickness = _safe_float(piece_meta.get("THICKNESS"))
+    density = _safe_float(piece_meta.get("DENSITY_G_CM3"))
+    ferromagnetic = _safe_bool(piece_meta.get("FERROMAGNETIC"))
+
+    profile = material_profile(material)
+    if density is None:
+        density = _safe_float(profile.get("density_g_cm3"))
+    if ferromagnetic is None:
+        ferromagnetic = profile.get("ferromagnetic") if isinstance(profile.get("ferromagnetic"), bool) else None
+
+    payload = {
+        "Material": material or str(profile.get("family") or "UNKNOWN"),
+        "Thickness": thickness,
+        "Density": (density * 1e-6) if density is not None else None,
+        "Ferromagnetic": ferromagnetic,
+    }
+
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    _dump_json(output_path, payload)
+    return payload
 
 
 def _sanitize_name(value: str) -> str:
@@ -457,8 +815,95 @@ def _build_polyshape_from_contours(contours) -> tuple[Any | None, list[list[floa
     return polyout, voronoi
 
 
-def build_ref_json_for_piece(piece_cnc: str | Path, output_json: str | Path) -> Path:
-    """Genera el ref JSON de una pieza para pasárselo a compute_ref.exe."""
+def _resolve_source_program_path(source_file: str | None) -> Path | None:
+    """Resuelve la ruta del programa origen a partir del META SOURCE_FILE."""
+    if not source_file:
+        return None
+
+    candidates = [
+        Path("INPUT") / source_file,
+        Path(source_file),
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate.resolve()
+    return None
+
+
+
+def _load_slot_ref_list_for_source(source_cnc: str | Path) -> list[dict[str, Any]] | None:
+    """Genera y cachea el refPartJson de load_slot para un programa origen."""
+    source_cnc = Path(source_cnc).resolve()
+    cache_key = str(source_cnc)
+    if cache_key in _LOAD_SLOT_REF_CACHE:
+        return _LOAD_SLOT_REF_CACHE[cache_key]
+
+    slot_name = source_cnc.stem
+    cache_dir = LOAD_SLOT_CACHE_DIR / slot_name
+    ref_json_path = cache_dir / f"refPartJson_{slot_name}.json"
+
+    try:
+        if not ref_json_path.exists():
+            with pushd(cache_dir):
+                error_flag = load_slot_script(str(source_cnc))
+            if error_flag != 0:
+                print(f"    load_slot devolvio {error_flag} para '{source_cnc.name}'")
+                _LOAD_SLOT_REF_CACHE[cache_key] = None
+                return None
+
+        ref_list = _load_json(ref_json_path)
+        if not isinstance(ref_list, list):
+            raise ValueError(f"El refPartJson de load_slot no es una lista: {ref_json_path}")
+
+        _LOAD_SLOT_REF_CACHE[cache_key] = ref_list
+        return ref_list
+    except Exception as exc:
+        print(f"    No se pudo reutilizar load_slot para '{source_cnc.name}': {exc}")
+        _LOAD_SLOT_REF_CACHE[cache_key] = None
+        return None
+
+
+
+def _adapt_load_slot_ref_for_piece(piece_cnc: str | Path, piece_id: str, piece_name: str, meta: dict[str, str]) -> dict[str, Any] | None:
+    """Recupera la referencia de load_slot que corresponde a la pieza separada."""
+    source_cnc = _resolve_source_program_path(meta.get("SOURCE_FILE"))
+    if source_cnc is None:
+        return None
+
+    ref_list = _load_slot_ref_list_for_source(source_cnc)
+    if not ref_list:
+        return None
+
+    ref_entry = None
+    ref_index = None
+    try:
+        ref_index = int(str(piece_id).strip()) - 1
+    except Exception:
+        ref_index = None
+
+    if ref_index is not None and 0 <= ref_index < len(ref_list):
+        candidate = ref_list[ref_index]
+        if isinstance(candidate, dict):
+            ref_entry = candidate
+
+    if ref_entry is None or str(ref_entry.get("reference", "")).strip() != piece_name:
+        for candidate in ref_list:
+            if isinstance(candidate, dict) and str(candidate.get("reference", "")).strip() == piece_name:
+                ref_entry = candidate
+                break
+
+    if ref_entry is None:
+        return None
+
+    payload = copy.deepcopy(ref_entry)
+    payload["pieceId"] = piece_id
+    payload["sourceCnc"] = str(Path(piece_cnc).as_posix())
+    return payload
+
+
+
+def _build_ref_json_for_piece_legacy(piece_cnc: str | Path, output_json: str | Path) -> Path:
+    """Genera el ref JSON de una pieza directamente desde el CNC de pieza."""
     try:
         from shapely import affinity
         from shapely.geometry import mapping
@@ -540,6 +985,23 @@ def build_ref_json_for_piece(piece_cnc: str | Path, output_json: str | Path) -> 
             "polyShape": polyshape_data,
         },
     }
+
+    output_json.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_json, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2, ensure_ascii=False)
+
+    return output_json
+
+
+def build_ref_json_for_piece(piece_cnc: str | Path, output_json: str | Path) -> Path:
+    """Genera el ref JSON de la pieza usando load_slot cuando hay programa origen."""
+    piece_cnc = Path(piece_cnc)
+    output_json = Path(output_json)
+    piece_id, piece_name, meta = _read_piece_header(piece_cnc)
+
+    payload = _adapt_load_slot_ref_for_piece(piece_cnc, piece_id, piece_name, meta)
+    if payload is None:
+        return _build_ref_json_for_piece_legacy(piece_cnc, output_json)
 
     output_json.parent.mkdir(parents=True, exist_ok=True)
     with open(output_json, "w", encoding="utf-8") as f:
@@ -1101,172 +1563,46 @@ def _draw_solution_overlay(
 def process_out_cnc_with_tools(
     cnc_dir: str = "OUT_cnc",
     tools_dir: str = "TOOLS",
-    material_file: str = "module_ai2/material.json",
     processed_tools_subdir: str = "processed",
-    max_compute_time: int = 60,
-    enhance_opti: int = 1,
+    max_compute_time: int | None = None,
+    enhance_opti: int | None = None,
     solutions_dir: str = "OUT_solutions",
 ) -> None:
-    """Ejecuta todas las combinaciones CNC x herramienta y consolida sus resultados."""
-    cnc_dirs = [cnc_dir]
-    scara_cnc_dir = os.path.join("SCARA", "OUT_cnc")
-    if os.path.isdir(scara_cnc_dir) and scara_cnc_dir != cnc_dir:
-        cnc_dirs.append(scara_cnc_dir)
+    """Ejecuta compute_ref para SCARA y ANTHRO en sus carpetas independientes."""
+    runtime_config = load_runtime_config()
+    compute_ref_config = runtime_config.get("compute_ref", {}) if isinstance(runtime_config, dict) else {}
+    if max_compute_time is None:
+        max_compute_time = int(compute_ref_config.get("max_compute_time", 2))
+    if enhance_opti is None:
+        enhance_opti = int(compute_ref_config.get("enhance_opti", 1))
 
-    if not os.path.exists(material_file):
-        print(f"No existe el archivo de material requerido: '{material_file}'")
-        return
+    robot_settings = get_robot_runtime_settings()
+    anthro_root = robot_settings["anthro_root"]
+    scara_root = robot_settings["scara_root"]
 
-    cnc_files = []
-    for directory in cnc_dirs:
-        cnc_files.extend([os.path.join(directory, name) for name in files_finder(directory, extensions=(".cnc",))])
+    robot_jobs = [
+        ("ANTHRO", os.path.join(anthro_root, "OUT_cnc"), os.path.join(anthro_root, "OUT_solutions")),
+        ("SCARA", os.path.join(scara_root, "OUT_cnc"), os.path.join(scara_root, "OUT_solutions")),
+    ]
 
-    if not cnc_files:
-        print("No se encontraron CNCs en OUT_cnc para procesar con compute_ref.exe")
-        return
+    any_processed = False
+    for robot_label, robot_cnc_dir, robot_solutions_dir in robot_jobs:
+        if not os.path.isdir(robot_cnc_dir) or not files_finder(robot_cnc_dir, extensions=(".cnc",)):
+            print(f"No se encontraron CNCs para {robot_label} en '{robot_cnc_dir}'")
+            continue
+        any_processed = True
+        process_robot_out_cnc_with_tools(
+            robot_label=robot_label,
+            cnc_dir=robot_cnc_dir,
+            tools_dir=tools_dir,
+            processed_tools_subdir=processed_tools_subdir,
+            max_compute_time=max_compute_time,
+            enhance_opti=enhance_opti,
+            solutions_dir=robot_solutions_dir,
+        )
 
-    tool_names = _tool_candidates(tools_dir)
-    if not tool_names:
-        print(f"No se encontraron herramientas JSON en '{tools_dir}'")
-        return
-
-    processed_tools_dir = os.path.join(tools_dir, processed_tools_subdir)
-    os.makedirs(processed_tools_dir, exist_ok=True)
-    ensure_clean_dir(solutions_dir)
-    png_dir = os.path.join(solutions_dir, "png")
-    os.makedirs(png_dir, exist_ok=True)
-
-    print(f"Procesando {len(cnc_files)} CNC(s) con {len(tool_names)} herramienta(s) usando compute_ref.exe...")
-
-    summary: list[dict[str, Any]] = []
-
-    for cnc_path in cnc_files:
-        piece_stem = Path(cnc_path).stem
-        piece_dir = os.path.join(solutions_dir, piece_stem)
-        os.makedirs(piece_dir, exist_ok=True)
-
-        for tool_name in tool_names:
-            tool_path = os.path.join(tools_dir, tool_name)
-            tool_stem = Path(tool_name).stem
-            combo_dir = os.path.join(piece_dir, tool_stem)
-            os.makedirs(combo_dir, exist_ok=True)
-
-            try:
-                processed_tool_path = build_tool_polygons(tool_path, processed_tools_dir)
-            except Exception as exc:
-                print(f"    Saltando herramienta '{tool_name}' por error en el paso de generación de polígonos: {exc}")
-                summary.append(
-                    {
-                        "piece_file": cnc_path,
-                        "tool_file": tool_path,
-                        "solution_found": False,
-                        "run_ok": False,
-                        "run_reason": f"Error generando polígonos: {exc}",
-                        "combo_dir": combo_dir,
-                    }
-                )
-                continue
-
-            ref_json_path = os.path.join(combo_dir, f"ref_{piece_stem}.json")
-            try:
-                build_ref_json_for_piece(cnc_path, ref_json_path)
-            except Exception as exc:
-                print(f"    No se pudo generar ref JSON para '{cnc_path}': {exc}")
-                summary.append(
-                    {
-                        "piece_file": cnc_path,
-                        "tool_file": tool_path,
-                        "solution_found": False,
-                        "run_ok": False,
-                        "run_reason": f"Error generando ref JSON: {exc}",
-                        "combo_dir": combo_dir,
-                    }
-                )
-                continue
-
-            print(f"  CNC: {cnc_path}  |  Herramienta: {tool_name}")
-            run_result = run_computeref(
-                ref_file=ref_json_path,
-                tool_file=processed_tool_path,
-                material_file=material_file,
-                workdir=combo_dir,
-                max_compute_time=max_compute_time,
-                enhance_opti=enhance_opti,
-            )
-
-            if not run_result["ok"]:
-                print(f"    compute_ref no completado: {run_result.get('reason')}")
-                if run_result.get("stdout"):
-                    print(f"    stdout: {run_result['stdout'].strip()}")
-                if run_result.get("stderr"):
-                    print(f"    stderr: {run_result['stderr'].strip()}")
-            elif run_result.get("stdout"):
-                print(f"    salida: {run_result['stdout'].strip()}")
-
-            solution_json_path = discover_solution_json(combo_dir, ref_json_path, run_result=run_result)
-            metadata = _build_solution_metadata(
-                piece_cnc=cnc_path,
-                ref_json_path=ref_json_path,
-                tool_json_path=processed_tool_path,
-                solution_json_path=solution_json_path,
-                combo_dir=combo_dir,
-                run_result=run_result,
-            )
-
-            # compute_ref puede dejar su propio metadata.json en la carpeta de la
-            # combinación, pero a menudo la metadata más completa la construye este
-            # parser. Para dibujar el overlay se usa una mezcla de ambas, dando
-            # prioridad a los valores del solver cuando existan.
-            solver_metadata_path = os.path.join(combo_dir, "metadata.json")
-            solver_metadata = None
-            if os.path.exists(solver_metadata_path):
-                try:
-                    solver_metadata = _load_json(solver_metadata_path)
-                except Exception:
-                    solver_metadata = None
-
-            overlay_name = f"{piece_stem}__{tool_stem}.png"
-            combo_overlay_path = os.path.join(combo_dir, overlay_name)
-            global_overlay_path = os.path.join(png_dir, overlay_name)
-
-            should_render = bool(solution_json_path and os.path.exists(solution_json_path))
-            metadata_for_draw = dict(metadata)
-            if solver_metadata is not None:
-                metadata_for_draw.update(solver_metadata)
-
-            if should_render:
-                try:
-                    overlay_ok_combo = _draw_solution_overlay(
-                        cnc_path,
-                        processed_tool_path,
-                        solution_json_path,
-                        combo_overlay_path,
-                        metadata=metadata_for_draw,
-                    )
-                    overlay_ok_global = _draw_solution_overlay(
-                        cnc_path,
-                        processed_tool_path,
-                        solution_json_path,
-                        global_overlay_path,
-                        metadata=metadata_for_draw,
-                    )
-                    metadata["solution_png"] = combo_overlay_path if overlay_ok_combo else None
-                    metadata["solution_png_global"] = global_overlay_path if overlay_ok_global else None
-                except Exception as exc:
-                    metadata["solution_png"] = None
-                    metadata["solution_png_global"] = None
-                    metadata["png_error"] = str(exc)
-                    print(f"    Error dibujando overlay: {exc}")
-            else:
-                metadata["solution_png"] = None
-                metadata["solution_png_global"] = None
-
-            # Guardar metadata propia sin sobrescribir la del solver.
-            parser_metadata_path = os.path.join(combo_dir, "metadata_parser.json")
-            _dump_json(parser_metadata_path, metadata)
-            summary.append(metadata)
-
-    _dump_json(os.path.join(solutions_dir, "summary.json"), summary)
+    if not any_processed:
+        print("No se encontraron CNCs en SCARA/OUT_cnc ni ANTHRO/OUT_cnc para procesar con compute_ref.exe")
 
 
 # -----------------------------------------------------------------------------
@@ -1275,11 +1611,14 @@ def process_out_cnc_with_tools(
 
 def main() -> None:
     """Orquesta el pipeline completo: separación, salidas geométricas y optimización."""
-    ensure_clean_dir("OUT_cnc")
-    ensure_clean_dir("OUT_dxf")
-    ensure_clean_dir("OUT_png")
-    ensure_clean_scara_dirs("SCARA")
-    ensure_clean_dir("OUT_solutions")
+    ensure_clean_dir(str(PARSED_PARTS_TMP_DIR))
+    robot_settings = get_robot_runtime_settings()
+    anthro_root = robot_settings["anthro_root"]
+    scara_root = robot_settings["scara_root"]
+    ensure_clean_robot_dirs(anthro_root)
+    ensure_clean_robot_dirs(scara_root)
+    ensure_clean_dir(str(LOAD_SLOT_CACHE_DIR))
+    _LOAD_SLOT_REF_CACHE.clear()
 
     renamed = change_extension("INPUT")
     if renamed > 0:
@@ -1298,43 +1637,42 @@ def main() -> None:
         file_lines = read_gcode_file(source_path)
         head_info = parse_gcode_head(file_lines)
 
-        before = set(files_finder("OUT_cnc", extensions=(".cnc",)))
-        parse_gcode_parts(file_lines)
-        after = set(files_finder("OUT_cnc", extensions=(".cnc",)))
-        new_piece_files = sorted(after - before)
+        ensure_clean_dir(str(PARSED_PARTS_TMP_DIR))
+        new_piece_files = parse_gcode_parts(file_lines, output_dir=PARSED_PARTS_TMP_DIR)
 
         if not new_piece_files:
-            print(f"    No se generaron piezas en OUT_cnc para '{filename}'")
+            print(f"    No se generaron piezas en la carpeta temporal interna para '{filename}'")
             continue
 
         print(f"    {len(new_piece_files)} piezas generadas")
-        process_generated_pieces(new_piece_files, filename, head_info)
+        process_generated_pieces(new_piece_files, filename, head_info, staging_dir=PARSED_PARTS_TMP_DIR)
+        ensure_clean_dir(str(PARSED_PARTS_TMP_DIR))
 
     print("\n")
     print("=" * 70)
     print("Procesamiento completo. Iniciando paso adicional con compute_ref.exe...")
     process_out_cnc_with_tools(
-        cnc_dir="OUT_cnc",
         tools_dir="TOOLS",
-        material_file=os.path.join("module_ai2", "material.json"),
         processed_tools_subdir="processed",
-        max_compute_time=2,
-        enhance_opti=1,
-        solutions_dir="OUT_solutions",
+        max_compute_time=None,
+        enhance_opti=None,
     )
-    
+
     print("\n")
     print("=" * 70)
-    print("\nGenerando informe de estadísticas desde summary.json")
-    summary_path = os.path.join("OUT_solutions", "summary.json")
-    if os.path.exists(summary_path):
-        try:
-            generate_tool_report_files(summary_path, output_dir=os.path.join("OUT_solutions", "report"))
+    print("\nGenerando informes de estadísticas por robot")
+    for robot_label, robot_root in (("ANTHRO", anthro_root), ("SCARA", scara_root)):
+        summary_path = os.path.join(robot_root, "OUT_solutions", "summary.json")
+        if os.path.exists(summary_path):
+            try:
+                generate_tool_report_files(summary_path, output_dir=os.path.join(robot_root, "OUT_solutions", "report"))
+                print(f"Informe generado para {robot_label}: {summary_path}")
+            except Exception as exc:
+                print(f"Error generando informe de estadísticas para {robot_label}: {exc}")
+        else:
+            print(f"No se encontró '{summary_path}' para generar el informe de estadísticas de {robot_label}.")
+    ensure_clean_dir(str(PARSED_PARTS_TMP_DIR))
 
-        except Exception as exc:
-            print(f"Error generando informe de estadísticas: {exc}")
-    else:
-        print(f"No se encontró '{summary_path}' para generar el informe de estadísticas.")
 
 if __name__ == "__main__":
     main()

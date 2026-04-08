@@ -2,63 +2,68 @@
 
 Pipeline para separar programas `.lpp`/`.cnc` en piezas individuales, generar sus salidas geométricas y evaluar cada pieza con todas las herramientas disponibles mediante `compute_ref.exe`.
 
-## Qué hace ahora mismo
+## Principal
 
 `main.py` ejecuta dos fases seguidas:
 
-1. fase de parsing y salidas base
+1. fase de parsing y clasificación por robot
    - renombra `.lpp` a `.cnc` dentro de `INPUT`
    - lee cabecera del programa origen
    - separa cada pieza en un `.cnc` individual
    - reescribe la cabecera de cada pieza con metadata calculada
-   - genera `OUT_png` y `OUT_dxf`
-   - clasifica además si la pieza pasa o no los filtros de `SCARA`
+   - clasifica cada pieza entre `SCARA` o `ANTHRO`
+   - genera su `OUT_png` y `OUT_dxf` dentro de la carpeta del robot asignado
 
 2. fase de optimización pieza + herramienta
-   - recorre todos los `.cnc` generados en `OUT_cnc`
+   - recorre los `.cnc` generados en `ANTHRO/OUT_cnc` y `SCARA/OUT_cnc`
    - recorre todas las herramientas JSON del directorio `TOOLS`
    - genera una versión procesada de cada herramienta en `TOOLS/processed`
    - construye un `ref_*.json` por pieza
    - llama a `module_ai2/compute_ref.exe`
-   - guarda resultados por combinación en `OUT_solutions`
-   - genera `metadata.json` por combinación
-   - genera `OUT_solutions/summary.json` con el resumen global
+   - guarda resultados por combinación dentro de `ANTHRO/OUT_solutions` o `SCARA/OUT_solutions`
+   - genera `metadata_parser.json` por combinación
+   - genera `summary.json` y `report/` por robot
    - genera PNG de overlay cuando existe geometría real de solución
 
-## Idea general del flujo
+## FLUJO
 
 ```text
 INPUT/*.lpp|*.cnc
-   -> OUT_cnc/*.cnc
-   -> OUT_png/*.png
-   -> OUT_dxf/*.dxf
-   -> OUT_solutions/<pieza>/<herramienta>/
-        - ref_<pieza>.json
-        - *_solution.json   (si compute_ref lo genera)
-        - metadata.json
-        - <pieza>__<herramienta>.png   (si hay solución dibujable)
+   -> ANTHRO/OUT_cnc/*.cnc
+   -> ANTHRO/OUT_png/*.png
+   -> ANTHRO/OUT_dxf/*.dxf
+   -> ANTHRO/OUT_solutions/<pieza>/<herramienta>/
+
+INPUT/*.lpp|*.cnc
+   -> SCARA/OUT_cnc/*.cnc
+   -> SCARA/OUT_png/*.png
+   -> SCARA/OUT_dxf/*.dxf
+   -> SCARA/OUT_solutions/<pieza>/<herramienta>/
 ```
 
-## Estructura de carpetas relevante
+## Estructura de carpetas
 
 ```text
 parser_lpp_BATCH/
 ├── INPUT/
-├── OUT_cnc/
-├── OUT_dxf/
-├── OUT_png/
-├── OUT_solutions/
+├── config.json
+├── ANTHRO/
+│   ├── OUT_cnc/
+│   ├── OUT_dxf/
+│   ├── OUT_png/
+│   └── OUT_solutions/
 ├── SCARA/
 │   ├── OUT_cnc/
 │   ├── OUT_dxf/
-│   └── OUT_png/
+│   ├── OUT_png/
+│   └── OUT_solutions/
+├── OUT_ref_cache/
 ├── TOOLS/
 │   ├── *.json
 │   └── processed/
 ├── module_ai2/
 │   ├── compute_ref.exe
-│   ├── compute_tool.py
-│   └── material.json
+│   └── compute_tool.py
 ├── modules/
 └── main.py
 ```
@@ -99,6 +104,73 @@ Desde la raíz del proyecto:
 python main.py
 ```
 
+## Configuración runtime
+
+El comportamiento de `main.py` se controla desde `config.json`.
+
+Ejemplo:
+
+```json
+{
+  "compute_ref": {
+    "max_compute_time": 2,
+    "enhance_opti": 1
+  },
+  "robots": {
+    "anthro": {
+      "root_dir": "ANTHRO"
+    },
+    "scara": {
+      "root_dir": "SCARA",
+      "filters": {
+        "max_bbox_x": 500.0,
+        "max_bbox_y": 500.0,
+        "max_weight_kg": 6.0,
+        "ferromagnetic": null,
+        "material_family_any": [],
+        "material_contains_any": []
+      }
+    }
+  },
+  "materials": {
+    "known": {
+      "STEEL": {
+        "aliases": ["FE", "S235", "ACERO", "STEEL"],
+        "density_g_cm3": 7.85,
+        "ferromagnetic": true
+      }
+    }
+  }
+}
+```
+
+### Descripciones
+
+- `compute_ref.max_compute_time`
+  - tiempo máximo que se pasa a `compute_ref.exe` por combinación pieza + herramienta
+- `compute_ref.enhance_opti`
+  - quinto argumento del solver
+- `robots.anthro.root_dir`
+  - carpeta raíz de salidas del robot antropomórfico
+- `robots.scara.root_dir`
+  - carpeta raíz de salidas del robot SCARA
+- `robots.scara.filters`
+  - filtros para decidir si una pieza va a `SCARA`; si no pasa, va a `ANTHRO`
+- `materials.known`
+  - catálogo de materiales conocidos
+- `materials.known.<FAMILIA>.aliases`
+  - tokens compatibles para reconocer el material real en los META
+
+Nota:
+Si en la cabecera de una pieza aparece `FE`, `material_profile()` no necesita lógica fija en código para entenderlo: lo resolverá con `config.json` como familia `STEEL`, densidad base `7.85 g/cm3` y `ferromagnetic=true`.
+
+### Orden de resolución del material
+
+1. Se lee `MATERIAL` desde la metadata real de la pieza.
+2. Se compara contra los alias definidos en `config.json`.
+3. Si hay match, se aplican sus propiedades.
+4. Si no hay match, se cae a un perfil genérico.
+
 ## Entradas
 
 ### 1. Programas de corte
@@ -115,17 +187,36 @@ Coloca las herramientas en `TOOLS/` como JSON.
 
 El script admite varias variantes de estructura y las aplana antes de llamar a `compute_tool.py`.
 
-### 3. Material del solver
+### 3. Configuración del solver, rutas y alias de material
 
-Debe existir:
+Edita `config.json` para controlar:
+- tiempo máximo de compute
+- parámetro `enhance_opti`
+- rutas de `SCARA` y `ANTHRO`
+- filtros de clasificación a SCARA
+- equivalencias de material
 
-```text
-module_ai2/material.json
-```
+### 4. Material del solver
+
+No hace falta un `material.json` global.
+
+Para cada pieza, `main.py` genera automáticamente un `material.json` temporal a partir de las líneas `META` de su `.cnc` separado, usando sobre todo:
+
+- `MATERIAL`
+- `THICKNESS`
+- `DENSITY_G_CM3`
+- `FERROMAGNETIC`
+
+Ese JSON por pieza es el que se pasa a `compute_ref.exe`.
+
+Unidad de densidad:
+- en metadata y `config.json`: `g/cm3` (`DENSITY_G_CM3`)
+- en el `material.json` que se entrega a `compute_ref.exe`: `kg/mm3`
+- conversión aplicada por `main.py`: `Density = DENSITY_G_CM3 * 1e-6`
 
 ## Salidas
 
-### OUT_cnc
+### ANTHRO/OUT_cnc y SCARA/OUT_cnc
 
 Un `.cnc` por pieza. La cabecera de cada pieza se reescribe con líneas `META` como:
 
@@ -141,42 +232,48 @@ Un `.cnc` por pieza. La cabecera de cada pieza se reescribe con líneas `META` c
 ( META WEIGHT_KG : 0.4291 )
 ```
 
-### OUT_png
+### ANTHRO/OUT_png y SCARA/OUT_png
 
 PNG de contorno por pieza.
 
-### OUT_dxf
+### ANTHRO/OUT_dxf y SCARA/OUT_dxf
 
 DXF por pieza.
 
-### OUT_solutions
+### ANTHRO/OUT_solutions y SCARA/OUT_solutions
 
 Se crea una carpeta por combinación pieza + herramienta:
 
 ```text
-OUT_solutions/
+SCARA/OUT_solutions/
 └── ID11_W56240401/
+    ├── material.json
     └── tool_17682099861849268/
         ├── ref_ID11_W56240401.json
         ├── ref_ID11_W56240401_solution.json
         ├── metadata.json
+        ├── metadata_parser.json
         └── ID11_W56240401__tool_17682099861849268.png
 ```
 
-Además:
+Además, cada robot tiene:
 
 ```text
-OUT_solutions/
+SCARA/OUT_solutions/
 ├── png/
-└── summary.json
+├── summary.json
+└── report/
 ```
 
-## Qué guarda metadata.json
+Y lo mismo para `ANTHRO/OUT_solutions/`.
+
+## Qué guarda metadata_parser.json
 
 Cada combinación guarda metadata normalizada para poder compararla después.
 
 Campos importantes:
 
+- `robot`
 - `piece_file`
 - `piece_id`
 - `piece_reference`
@@ -200,102 +297,39 @@ Campos importantes:
 - `solver_error_flag`
 - `time_limit_hit`
 - `solver_xmin`
-- `solver_fxmin`
 
-## Significado de status
+## Criterio de clasificación SCARA
 
-El campo `status` separa claramente casos que antes quedaban mezclados:
+La decisión la toma `modules/scara_router.py` usando la metadata calculada de la pieza y los filtros configurados en:
 
-- `valid`
-  - el solver devolvió una solución utilizable
-- `infeasible_cannot_lift`
-  - el solver encontró una colocación geométrica pero no puede levantar la pieza
-  - corresponde al flag `-6`
-- `solver_error`
-  - el solver terminó con otro flag no válido
-- `completed_without_geometry`
-  - hay JSON de salida pero no se ha podido extraer geometría real de solución
-- `completed_without_solution`
-  - la ejecución terminó pero no apareció un fichero de solución usable
-- `execution_error`
-  - el proceso ni siquiera pudo ejecutarse correctamente
-
-## Importante sobre el código 4294967290
-
-En Windows, `compute_ref.exe` puede devolver `4294967290`.
-
-Eso no es un código extraño nuevo: equivale a `-6` interpretado como entero sin signo de 32 bits.
-
-El script lo normaliza automáticamente a:
-
-```text
-returncode_signed = -6
+```json
+robots.scara.filters
 ```
 
-y lo clasifica como:
+Filtros soportados:
 
-```text
-status = infeasible_cannot_lift
+```json
+{
+  "max_bbox_x": 500.0,
+  "max_bbox_y": 500.0,
+  "max_weight_kg": 6.0,
+  "ferromagnetic": null,
+  "material_family_any": ["STEEL", "STAINLESS"],
+  "material_contains_any": ["INOX", "S235"]
+}
 ```
 
-## Criterio de puntuación actual
+Si la pieza pasa esos filtros, va a `SCARA/`.
+Si no los pasa, va a `ANTHRO/`.
 
-Por ahora el campo preparado para ranking es:
+## Qué mirar primero al revisar resultados
 
-- `score_distance_centers_approx`
+Para revisar resultados, empieza por:
 
-Ese valor coincide con la distancia aproximada entre:
-- centro de la pieza
-- centro aproximado de colocación de la herramienta
+- `SCARA/OUT_solutions/summary.json`
+- `ANTHRO/OUT_solutions/summary.json`
 
-Más adelante se puede ampliar con penalizaciones por:
-- cantidad de útiles activos
-- tiempo de cómputo
-- flags del solver
-- offset respecto al centro geométrico
+Y luego por los informes:
 
-## Módulos clave
-
-### main.py
-
-Orquestación completa del pipeline.
-
-### modules/parse_head.py
-
-Extrae metadatos de cabecera del CNC original.
-
-### modules/parse_parts.py
-
-Separa el programa en piezas individuales.
-
-### modules/draw_part.py
-
-Reconstruye contornos y dibuja el PNG de la pieza.
-
-### modules/cnc_to_dxf.py
-
-Convierte la pieza a DXF.
-
-### module_ai2/compute_tool.py
-
-Preprocesa la herramienta para añadir polígonos.
-
-### module_ai2/compute_ref.exe
-
-Resuelve la colocación de la herramienta sobre la pieza.
-
-## Limitaciones conocidas
-
-- si falta `shapely`, no se podrá construir correctamente el `ref JSON`
-- si falta `wine` fuera de Windows, `compute_ref.exe` no podrá ejecutarse
-- una herramienta puede aparecer duplicada si en `TOOLS` conviven versiones equivalentes con distinto nombre
-- la distancia entre centros es aproximada y depende de la geometría que el solver haya dejado en su JSON de salida
-- `solution_found` no implica siempre `solution_valid`
-
-## Análisis de resultados previos
-
-Para revisar resultados, empieza por `OUT_solutions/summary.json` y filtra primero por:
-
-1. `status == "valid"`
-2. menor `score_distance_centers_approx`
-3. menor `tool_active_count`
+- `SCARA/OUT_solutions/report/`
+- `ANTHRO/OUT_solutions/report/`

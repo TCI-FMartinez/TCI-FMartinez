@@ -1,16 +1,13 @@
 # Ignora archivos del sistema Mac 
 .DS_store
 
-# Ignora la carpetas
+# Ignora las carpetas
 node_modules
 DISTRO
 DISTRO2
 SANDBOX
 <<<<<<< HEAD
 =======
-DISTRO2
->>>>>>> 1c10dfd723b18e7ebab8c2ec29ad78c9ad3f9b50
-build
 
 # Ignora los archivos
 *.temp
@@ -23,7 +20,7 @@ build
 <<<<<<< HEAD
 =======
 *.exe
->>>>>>> 1c10dfd723b18e7ebab8c2ec29ad78c9ad3f9b50
+
 
 # Ignora los archivos relacionados a API keys
 .env

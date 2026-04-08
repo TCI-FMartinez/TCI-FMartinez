@@ -1,0 +1,107 @@
+{
+  "compute_ref": {
+    "max_compute_time": 2,
+    "enhance_opti": 1
+  },
+  "robots": {
+    "anthro": {
+      "root_dir": "OUTPUT/ANTHRO"
+    },
+    "scara": {
+      "root_dir": "OUTPUT/SCARA",
+      "filters": {
+        "max_bbox_x": 500.0,
+        "max_bbox_y": 500.0,
+        "max_weight_kg": 6.0,
+        "ferromagnetic": null,
+        "material_family_any": [],
+        "material_contains_any": []
+      }
+    }
+  },
+  "materials": {
+    "known": {
+      "ALUMINUM": {
+        "aliases": [
+          "ALUM",
+          "ALUMINIO",
+          "ALMG",
+          "5083",
+          "5754",
+          "1050"
+        ],
+        "density_g_cm3": 2.7,
+        "ferromagnetic": false
+      },
+      "BRASS": {
+        "aliases": [
+          "LATON",
+          "BRASS"
+        ],
+        "density_g_cm3": 8.5,
+        "ferromagnetic": false
+      },
+      "COPPER": {
+        "aliases": [
+          "COBRE",
+          "COPPER"
+        ],
+        "density_g_cm3": 8.96,
+        "ferromagnetic": false
+      },
+      "STAINLESS_FERRO": {
+        "aliases": [
+          "INOX 430",
+          "AISI 430",
+          "AISI430",
+          "INOX 409",
+          "AISI 409",
+          "AISI409",
+          "INOX 441",
+          "AISI 441",
+          "AISI441",
+          "430",
+          "409",
+          "441"
+        ],
+        "density_g_cm3": 7.9,
+        "ferromagnetic": true
+      },
+      "STAINLESS": {
+        "aliases": [
+          "INOX",
+		      "Inoxidable",
+		      "A-304",
+          "A304",
+          "A316",
+		      "A-316",
+          "STAINLESS",
+          "AISI 304",
+          "AISI304",
+          "AISI 316",
+          "AISI316"
+        ],
+        "density_g_cm3": 7.9,
+        "ferromagnetic": false
+      },
+      "STEEL": {
+        "aliases": [
+          "FE",
+          "S235",
+          "S275",
+          "S355",
+          "ACERO",
+          "ACERO AL CARBONO",
+          "STEEL",
+          "HIERRO",
+          "GALV",
+		      "GALVA",
+          "DC01",
+          "DD11"
+        ],
+        "density_g_cm3": 7.85,
+        "ferromagnetic": true
+      }
+    }
+  }
+}

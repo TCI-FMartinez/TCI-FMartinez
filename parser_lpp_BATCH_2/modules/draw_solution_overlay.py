@@ -14,11 +14,8 @@ if __package__ in (None, ''):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from modules.draw_part import contour_to_points, contours_bbox
+from modules.cnc_to_dxf import parse_cnc_contours, simplify_contour_geometry
 
-try:
-    from modules.cnc_to_dxf import parse_cnc_contours, simplify_contour_geometry
-except ImportError:
-    from modules.cnc_to_dxf_combined import parse_cnc_contours, simplify_contour_geometry
 
 
 def _load_json(path: str | Path) -> Any:
@@ -360,6 +357,91 @@ def _rotate_translate_point(local_xy: list[float] | tuple[float, float], center_
     return [center_xy[0] + c * x - s * y, center_xy[1] + s * x + c * y]
 
 
+def _wrap_angle_pi(angle_rad: float) -> float:
+    return (angle_rad + math.pi) % (2.0 * math.pi) - math.pi
+
+
+def _axis_angle_delta(target_angle_rad: float, source_angle_rad: float) -> float:
+    delta = _wrap_angle_pi(target_angle_rad - source_angle_rad)
+    if delta > (math.pi / 2.0):
+        delta -= math.pi
+    elif delta < (-math.pi / 2.0):
+        delta += math.pi
+    return delta
+
+
+def _bbox_center(bbox: Any) -> list[float] | None:
+    if not isinstance(bbox, (list, tuple)) or len(bbox) < 2:
+        return None
+    pts = []
+    for pt in bbox:
+        if isinstance(pt, (list, tuple)) and len(pt) >= 2:
+            pts.append([float(pt[0]), float(pt[1])])
+    if len(pts) < 2:
+        return None
+    return [
+        sum(p[0] for p in pts) / len(pts),
+        sum(p[1] for p in pts) / len(pts),
+    ]
+
+
+def _bbox_major_axis_angle(bbox: Any) -> float:
+    if not isinstance(bbox, (list, tuple)) or len(bbox) < 2:
+        return 0.0
+    pts = []
+    for pt in bbox:
+        if isinstance(pt, (list, tuple)) and len(pt) >= 2:
+            pts.append([float(pt[0]), float(pt[1])])
+    if len(pts) < 2:
+        return 0.0
+    if len(pts) >= 2 and pts[0] == pts[-1]:
+        pts = pts[:-1]
+    if len(pts) < 2:
+        return 0.0
+
+    best_angle = 0.0
+    best_len2 = -1.0
+    for idx in range(len(pts)):
+        a = pts[idx]
+        b = pts[(idx + 1) % len(pts)]
+        dx = float(b[0]) - float(a[0])
+        dy = float(b[1]) - float(a[1])
+        len2 = dx * dx + dy * dy
+        if len2 > best_len2:
+            best_len2 = len2
+            best_angle = math.atan2(dy, dx)
+    return best_angle
+
+
+def _points_principal_axis_angle(points: list[list[float]] | list[tuple[float, float]]) -> float:
+    if len(points) < 2:
+        return 0.0
+    arr = np.asarray(points, dtype=float)
+    if arr.ndim != 2 or arr.shape[1] < 2:
+        return 0.0
+    arr = arr[:, :2]
+    arr = arr - np.mean(arr, axis=0, keepdims=True)
+    if arr.shape[0] < 2:
+        return 0.0
+    cov = arr.T @ arr
+    vals, vecs = np.linalg.eigh(cov)
+    axis = vecs[:, int(np.argmax(vals))]
+    return math.atan2(float(axis[1]), float(axis[0]))
+
+
+def _solution_to_piece_frame_point(
+    point_xy: list[float] | tuple[float, float],
+    solution_piece_center_xy: list[float],
+    drawn_piece_center_xy: list[float],
+    frame_angle_rad: float,
+) -> list[float]:
+    local = [
+        float(point_xy[0]) - float(solution_piece_center_xy[0]),
+        float(point_xy[1]) - float(solution_piece_center_xy[1]),
+    ]
+    return _rotate_translate_point(local, drawn_piece_center_xy, frame_angle_rad)
+
+
 def _draw_solution_not_found_banner(canvas: np.ndarray, text: str = 'Solucion no encontrada') -> None:
     """Dibuja un aviso muy visible cuando la solucion no es fiable."""
     font = cv2.FONT_HERSHEY_SIMPLEX
@@ -451,17 +533,68 @@ def draw_solution_overlay_png(
 
     piece_center = [0.5 * (min_x + max_x), 0.5 * (min_y + max_y)]
     metadata_piece_center = _metadata_piece_center(metadata)
-    frame_offset = [0.0, 0.0]
-    if metadata_piece_center is not None:
-        frame_offset = [piece_center[0] - metadata_piece_center[0], piece_center[1] - metadata_piece_center[1]]
+    solution_bbox = solution_payload.get('boundingBox') if isinstance(solution_payload, dict) else None
+    solution_piece_center = _bbox_center(solution_bbox) or metadata_piece_center or piece_center
+    solution_piece_angle = _bbox_major_axis_angle(solution_bbox)
+
+    drawn_piece_points: list[list[float]] = []
+    for contour in contours:
+        drawn_piece_points.extend(contour_to_points(contour, arc_segments=72, close_if_open=True))
+    drawn_piece_angle = _points_principal_axis_angle(drawn_piece_points)
+    frame_angle = _axis_angle_delta(drawn_piece_angle, solution_piece_angle)
+
     pc = canvas_xy(piece_center)
     cv2.drawMarker(canvas, pc, (0, 0, 0), markerType=cv2.MARKER_CROSS, markerSize=18, thickness=2)
 
     drawn_tool_center = None
-    if explicit_points and len(explicit_points) > 1:
+    total_tool_angle = tool_angle + frame_angle
+
+    if tool_center is not None:
+        drawn_tool_center = _solution_to_piece_frame_point(
+            tool_center,
+            solution_piece_center,
+            piece_center,
+            frame_angle,
+        )
+
+        if solution_is_reliable and tool_outline:
+            mapped_outline = [
+                canvas_xy(_rotate_translate_point(pt, drawn_tool_center, total_tool_angle))
+                for pt in tool_outline
+            ]
+            for a, b in zip(mapped_outline[:-1], mapped_outline[1:]):
+                cv2.line(canvas, a, b, (90, 90, 90), 1, cv2.LINE_AA)
+
+        if explicit_points and len(explicit_points) > 1:
+            if solution_is_reliable:
+                for idx, pt in enumerate(explicit_points):
+                    absolute_pt = _rotate_translate_point(pt, drawn_tool_center, total_tool_angle)
+                    mapped = canvas_xy(absolute_pt)
+                    radius_px = 10
+                    is_active = idx in active_indexes
+                    if is_active:
+                        cv2.circle(canvas, mapped, radius_px, (0, 180, 0), -1)
+                        cv2.circle(canvas, mapped, radius_px, (0, 90, 0), 2)
+                    else:
+                        cv2.circle(canvas, mapped, radius_px, (150, 150, 150), 2)
+        else:
+            for tool in tool_positions:
+                absolute = _rotate_translate_point(tool['position'], drawn_tool_center, total_tool_angle)
+                mapped = canvas_xy(absolute)
+                radius_px = max(4, int(round((tool.get('diameter') or 0.0) * 0.5 * scale)))
+                is_active = tool['index'] in active_indexes if solution_is_reliable else False
+                if solution_is_reliable and is_active:
+                    cv2.circle(canvas, mapped, radius_px, (0, 180, 0), -1)
+                    cv2.circle(canvas, mapped, radius_px, (0, 90, 0), 2)
+                else:
+                    cv2.circle(canvas, mapped, radius_px, (150, 150, 150), 2)
+    elif explicit_points and len(explicit_points) > 1:
+        transformed_points = [
+            _solution_to_piece_frame_point(pt, solution_piece_center, piece_center, frame_angle)
+            for pt in explicit_points
+        ]
         if solution_is_reliable:
-            for idx, pt in enumerate(explicit_points):
-                absolute_pt = [pt[0] + frame_offset[0], pt[1] + frame_offset[1]]
+            for idx, absolute_pt in enumerate(transformed_points):
                 mapped = canvas_xy(absolute_pt)
                 radius_px = 10
                 is_active = idx in active_indexes
@@ -471,25 +604,9 @@ def draw_solution_overlay_png(
                 else:
                     cv2.circle(canvas, mapped, radius_px, (150, 150, 150), 2)
         drawn_tool_center = [
-            sum(p[0] for p in explicit_points) / len(explicit_points) + frame_offset[0],
-            sum(p[1] for p in explicit_points) / len(explicit_points) + frame_offset[1],
+            sum(p[0] for p in transformed_points) / len(transformed_points),
+            sum(p[1] for p in transformed_points) / len(transformed_points),
         ]
-    elif tool_center is not None:
-        if solution_is_reliable and tool_outline:
-            mapped_outline = [canvas_xy(_rotate_translate_point(pt, [tool_center[0] + frame_offset[0], tool_center[1] + frame_offset[1]], tool_angle)) for pt in tool_outline]
-            for a, b in zip(mapped_outline[:-1], mapped_outline[1:]):
-                cv2.line(canvas, a, b, (90, 90, 90), 1, cv2.LINE_AA)
-        for tool in tool_positions:
-            absolute = _rotate_translate_point(tool['position'], [tool_center[0] + frame_offset[0], tool_center[1] + frame_offset[1]], tool_angle)
-            mapped = canvas_xy(absolute)
-            radius_px = max(4, int(round((tool.get('diameter') or 0.0) * 0.5 * scale)))
-            is_active = tool['index'] in active_indexes if solution_is_reliable else False
-            if solution_is_reliable and is_active:
-                cv2.circle(canvas, mapped, radius_px, (0, 180, 0), -1)
-                cv2.circle(canvas, mapped, radius_px, (0, 90, 0), 2)
-            else:
-                cv2.circle(canvas, mapped, radius_px, (150, 150, 150), 2)
-        drawn_tool_center = [tool_center[0] + frame_offset[0], tool_center[1] + frame_offset[1]]
 
     if drawn_tool_center is None:
         ref_payload = solution_payload if isinstance(solution_payload, dict) else {}
