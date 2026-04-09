@@ -54,7 +54,7 @@ DEBUG_LEVEL = 1  # 0 = sin logs, 1 = info básica, 2 = debug detallado
 LOAD_SLOT_CACHE_DIR = Path("OUT_ref_cache")
 INTERNAL_TMP_ROOT = Path("_internal")
 PARSED_PARTS_TMP_DIR = INTERNAL_TMP_ROOT / "parsed_parts"
-_LOAD_SLOT_REF_CACHE: dict[str, list[dict[str, Any]] | None] = {}
+_LOAD_SLOT_SOURCE_CACHE: dict[str, dict[str, Any] | None] = {}
 _RUNTIME_CONFIG_CACHE: dict[str, Any] | None = None
 
 CONFIG_PATH = Path(__file__).with_name("config.json")
@@ -62,12 +62,18 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "_meta": {
         "config_version": 1,
         "generated_by": "@F_Martinez - TCI Cutting",
-        "generated_at": None,
+        "generated_at": "null",
+        "description": "Puedes editar los valores según tu instalación.",
         "debug_level": 1,
-        "description": "Archivo de configuración generado automáticamente. Puedes editar los valores según tu instalación.",
+        "notes": [
+            "Asegúrate de que las rutas de los robots sean correctas.",
+            "Revisa los filtros para el robot SCARA según tus necesidades.",
+            "Agrega o modifica materiales conocidos según tu inventario.",
+            "el nivel de LOG es 0 = sin LOG, 1 = LOG normal, 2 = LOG detallado (debug)."
+        ]
     },
     "compute_ref": {
-        "max_compute_time": 2,
+        "max_compute_time": 3,
         "enhance_opti": 1,
     },
     "robots": {
@@ -559,7 +565,7 @@ def process_robot_out_cnc_with_tools(
     cnc_dir: str,
     tools_dir: str,
     processed_tools_subdir: str,
-    max_compute_time: int,
+    max_compute_time: float,
     enhance_opti: int,
     solutions_dir: str,
     *,
@@ -987,38 +993,122 @@ def _resolve_source_program_path(source_file: str | None) -> Path | None:
 
 
 
-def _load_slot_ref_list_for_source(source_cnc: str | Path) -> list[dict[str, Any]] | None:
-    """Genera y cachea el refPartJson de load_slot para un programa origen."""
+def _load_slot_source_payload_for_source(source_cnc: str | Path) -> dict[str, Any] | None:
+    """Genera y cachea los JSON refPartJson y partJson de load_slot para un programa origen."""
     source_cnc = Path(source_cnc).resolve()
     cache_key = str(source_cnc)
-    if cache_key in _LOAD_SLOT_REF_CACHE:
-        return _LOAD_SLOT_REF_CACHE[cache_key]
+    if cache_key in _LOAD_SLOT_SOURCE_CACHE:
+        return _LOAD_SLOT_SOURCE_CACHE[cache_key]
 
     slot_name = source_cnc.stem
     cache_dir = LOAD_SLOT_CACHE_DIR / slot_name
     ref_json_path = cache_dir / f"refPartJson_{slot_name}.json"
+    part_json_path = cache_dir / f"partJson_{slot_name}.json"
 
     try:
-        if not ref_json_path.exists():
+        if not ref_json_path.exists() or not part_json_path.exists():
             with pushd(cache_dir):
                 error_flag = load_slot_script(str(source_cnc))
             if error_flag != 0:
                 print(f"    load_slot devolvio {error_flag} para '{source_cnc.name}'")
-                _LOAD_SLOT_REF_CACHE[cache_key] = None
+                _LOAD_SLOT_SOURCE_CACHE[cache_key] = None
                 return None
 
         ref_list = _load_json(ref_json_path)
+        part_list = _load_json(part_json_path)
         if not isinstance(ref_list, list):
             raise ValueError(f"El refPartJson de load_slot no es una lista: {ref_json_path}")
+        if not isinstance(part_list, list):
+            raise ValueError(f"El partJson de load_slot no es una lista: {part_json_path}")
 
-        _LOAD_SLOT_REF_CACHE[cache_key] = ref_list
-        return ref_list
+        payload = {
+            "ref_list": ref_list,
+            "part_list": part_list,
+        }
+        _LOAD_SLOT_SOURCE_CACHE[cache_key] = payload
+        return payload
     except Exception as exc:
         mss = (f"    No se pudo reutilizar load_slot para '{source_cnc.name}': {exc}")
         if DEBUG_LEVEL >= 1:
             LogThis("LOAD_SLOT", "ERR", mss, "")
-        _LOAD_SLOT_REF_CACHE[cache_key] = None
+        _LOAD_SLOT_SOURCE_CACHE[cache_key] = None
         return None
+
+
+
+def _load_slot_ref_list_for_source(source_cnc: str | Path) -> list[dict[str, Any]] | None:
+    """Devuelve la lista refPartJson ya cacheada para un programa origen."""
+    payload = _load_slot_source_payload_for_source(source_cnc)
+    if not payload:
+        return None
+    ref_list = payload.get("ref_list")
+    return ref_list if isinstance(ref_list, list) else None
+
+
+
+def _load_slot_part_list_for_source(source_cnc: str | Path) -> list[dict[str, Any]] | None:
+    """Devuelve la lista partJson ya cacheada para un programa origen."""
+    payload = _load_slot_source_payload_for_source(source_cnc)
+    if not payload:
+        return None
+    part_list = payload.get("part_list")
+    return part_list if isinstance(part_list, list) else None
+
+
+
+def _normalize_bbox_points(value: Any) -> list[list[float]]:
+    """Normaliza una bounding box de 4 puntos a una lista XY limpia."""
+    points: list[list[float]] = []
+    if not isinstance(value, (list, tuple)):
+        return points
+    for pt in value:
+        if isinstance(pt, (list, tuple)) and len(pt) >= 2:
+            try:
+                points.append([float(pt[0]), float(pt[1])])
+            except Exception:
+                continue
+    return points
+
+
+
+def _bbox_center_from_points(points: list[list[float]]) -> list[float] | None:
+    """Calcula el centro de una bounding box representada por sus vértices."""
+    if not points:
+        return None
+    xs = [float(p[0]) for p in points]
+    ys = [float(p[1]) for p in points]
+    return [0.5 * (min(xs) + max(xs)), 0.5 * (min(ys) + max(ys))]
+
+
+
+def _load_slot_index_from_piece_id(piece_id: str) -> int | None:
+    """Convierte el ID de pieza del CNC separado en el índice global usado por load_slot."""
+    try:
+        return int(str(piece_id).strip()) - 1
+    except Exception:
+        return None
+
+
+
+def _lookup_load_slot_entry_for_piece(entries: list[dict[str, Any]] | None, piece_id: str, piece_name: str) -> dict[str, Any] | None:
+    """Localiza una entrada de load_slot usando el índice global y, si falla, la referencia."""
+    if not entries:
+        return None
+
+    entry = None
+    entry_index = _load_slot_index_from_piece_id(piece_id)
+    if entry_index is not None and 0 <= entry_index < len(entries):
+        candidate = entries[entry_index]
+        if isinstance(candidate, dict):
+            entry = candidate
+
+    if entry is None or str(entry.get("reference", "")).strip() != piece_name:
+        for candidate in entries:
+            if isinstance(candidate, dict) and str(candidate.get("reference", "")).strip() == piece_name:
+                entry = candidate
+                break
+
+    return entry if isinstance(entry, dict) else None
 
 
 
@@ -1029,36 +1119,59 @@ def _adapt_load_slot_ref_for_piece(piece_cnc: str | Path, piece_id: str, piece_n
         return None
 
     ref_list = _load_slot_ref_list_for_source(source_cnc)
-    if not ref_list:
-        return None
-
-    ref_entry = None
-    ref_index = None
-    try:
-        ref_index = int(str(piece_id).strip()) - 1
-    except Exception:
-        if DEBUG_LEVEL >= 2:
-            LogThis("REF_JSON", "WRN", f"ID de pieza '{piece_id}' no es un índice válido para load_slot, se buscará por referencia", "")
-        ref_index = None
-
-    if ref_index is not None and 0 <= ref_index < len(ref_list):
-        candidate = ref_list[ref_index]
-        if isinstance(candidate, dict):
-            ref_entry = candidate
-
-    if ref_entry is None or str(ref_entry.get("reference", "")).strip() != piece_name:
-        for candidate in ref_list:
-            if isinstance(candidate, dict) and str(candidate.get("reference", "")).strip() == piece_name:
-                ref_entry = candidate
-                break
-
+    ref_entry = _lookup_load_slot_entry_for_piece(ref_list, piece_id, piece_name)
     if ref_entry is None:
+        if DEBUG_LEVEL >= 2:
+            LogThis("REF_JSON", "WRN", f"No se encontró la referencia load_slot para pieza '{piece_id}' / '{piece_name}'", "")
         return None
 
     payload = copy.deepcopy(ref_entry)
     payload["pieceId"] = piece_id
     payload["sourceCnc"] = str(Path(piece_cnc).as_posix())
     return payload
+
+
+
+def _extract_piece_pose_from_load_slot(
+    piece_id: str,
+    piece_name: str,
+    meta: dict[str, str],
+    ref_payload: dict[str, Any],
+) -> dict[str, Any]:
+    """Recupera la pose real de la pieza en chapa para mapear coordenadas locales de load_slot."""
+    source_cnc = _resolve_source_program_path(meta.get("SOURCE_FILE"))
+    if source_cnc is None:
+        return {}
+
+    part_list = _load_slot_part_list_for_source(source_cnc)
+    part_entry = _lookup_load_slot_entry_for_piece(part_list, piece_id, piece_name)
+    if part_entry is None:
+        return {}
+
+    local_bbox = _normalize_bbox_points(ref_payload.get("boundingBox"))
+    sheet_bbox = _normalize_bbox_points(part_entry.get("boundingBox"))
+    if not local_bbox or not sheet_bbox:
+        return {}
+
+    local_origin = local_bbox[0]
+    sheet_origin = sheet_bbox[0]
+    local_angle = _safe_float(ref_payload.get("angle")) or 0.0
+    sheet_angle = _safe_float(part_entry.get("angle")) or 0.0
+    piece_center_sheet = _bbox_center_from_points(sheet_bbox)
+    piece_center_local = _bbox_center_from_points(local_bbox)
+
+    return {
+        "coord_frame": "load_slot_local_to_sheet",
+        "pose_source": "load_slot_partJson",
+        "piece_sheet_bbox": sheet_bbox,
+        "piece_sheet_angle_rad": sheet_angle,
+        "piece_sheet_origin": [float(sheet_origin[0]), float(sheet_origin[1])],
+        "piece_center_sheet_approx": piece_center_sheet,
+        "reference_bbox_local": local_bbox,
+        "reference_angle_local_rad": local_angle,
+        "reference_origin_local": [float(local_origin[0]), float(local_origin[1])],
+        "piece_center_local_from_ref": piece_center_local,
+    }
 
 
 
@@ -1369,7 +1482,7 @@ def run_computeref(
     tool_file: str,
     material_file: str,
     workdir: str,
-    max_compute_time: int = 60,
+    max_compute_time: float = 60.0,
     enhance_opti: int = 1,
 ) -> dict[str, Any]:
     """Ejecuta compute_ref y devuelve un resultado rico, no solo el returncode."""
@@ -1395,7 +1508,7 @@ def run_computeref(
 
     before = {str(p.name) for p in workdir_path.iterdir() if p.is_file()}
     cmd = cmd_prefix + [ref_abs, tool_abs, material_abs, str(max_compute_time), str(enhance_opti)]
-    print(f"    Ejecutando: {' '.join(cmd)}")
+    #print(f"    Ejecutando: {' '.join(cmd)}")
 
     try:
         result = subprocess.run(cmd, cwd=str(workdir_path), capture_output=True, text=True)
@@ -1632,6 +1745,37 @@ def _distance_xy(a: list[float] | None, b: list[float] | None) -> float | None:
     return math.hypot(float(a[0]) - float(b[0]), float(a[1]) - float(b[1]))
 
 
+
+def _rotate_xy(point_xy: list[float] | tuple[float, float], angle_rad: float) -> list[float]:
+    """Rota un punto 2D alrededor del origen."""
+    c = math.cos(angle_rad)
+    s = math.sin(angle_rad)
+    x = float(point_xy[0])
+    y = float(point_xy[1])
+    return [c * x - s * y, s * x + c * y]
+
+
+
+def _transform_local_point_to_sheet(point_xy: list[float] | None, pose_metadata: dict[str, Any] | None) -> list[float] | None:
+    """Transforma un punto del frame local de refPartJson al frame real de chapa."""
+    if point_xy is None or not pose_metadata:
+        return None
+
+    local_origin = pose_metadata.get("reference_origin_local")
+    sheet_origin = pose_metadata.get("piece_sheet_origin")
+    if not isinstance(local_origin, (list, tuple)) or len(local_origin) < 2:
+        return [float(point_xy[0]), float(point_xy[1])]
+    if not isinstance(sheet_origin, (list, tuple)) or len(sheet_origin) < 2:
+        return [float(point_xy[0]), float(point_xy[1])]
+
+    local_angle = _safe_float(pose_metadata.get("reference_angle_local_rad")) or 0.0
+    sheet_angle = _safe_float(pose_metadata.get("piece_sheet_angle_rad")) or 0.0
+    delta_angle = sheet_angle - local_angle
+    local_rel = [float(point_xy[0]) - float(local_origin[0]), float(point_xy[1]) - float(local_origin[1])]
+    rotated = _rotate_xy(local_rel, delta_angle)
+    return [float(sheet_origin[0]) + rotated[0], float(sheet_origin[1]) + rotated[1]]
+
+
 def _build_solution_metadata(
     piece_cnc: str | Path,
     ref_json_path: str | Path,
@@ -1656,6 +1800,12 @@ def _build_solution_metadata(
             sum(p[0] for p in solution_points) / len(solution_points),
             sum(p[1] for p in solution_points) / len(solution_points),
         ]
+
+    pose_metadata = _extract_piece_pose_from_load_slot(piece_id, piece_name, piece_meta, ref_payload)
+    piece_center_sheet = pose_metadata.get("piece_center_sheet_approx") if pose_metadata else None
+    if piece_center_sheet is None:
+        piece_center_sheet = piece_center
+    tool_center_sheet = _transform_local_point_to_sheet(tool_center, pose_metadata) if pose_metadata else tool_center
 
     active_indexes = _infer_solution_active(solution_payload, len(tool_positions))
     center_distance = _distance_xy(piece_center, tool_center)
@@ -1683,13 +1833,14 @@ def _build_solution_metadata(
         else:
             status = "solver_error"
 
-    return {
+    payload = {
         "piece_file": str(piece_cnc.as_posix()),
         "piece_id": piece_id,
         "piece_reference": piece_name,
         "piece_material": piece_meta.get("MATERIAL", ""),
         "piece_thickness": _safe_float(piece_meta.get("THICKNESS")),
         "piece_center_approx": piece_center,
+        "piece_center_sheet_approx": piece_center_sheet,
         "tool_file": str(Path(tool_json_path).as_posix()),
         "tool_elements_total": len(tool_positions),
         "solution_json": str(Path(solution_json_path).as_posix()) if solution_json_path else None,
@@ -1698,6 +1849,7 @@ def _build_solution_metadata(
         "solution_valid": status == "valid",
         "status": status,
         "tool_center_approx": tool_center,
+        "tool_center_sheet_approx": tool_center_sheet,
         "center_distance_approx": center_distance,
         "score_distance_centers_approx": center_distance,
         "tool_active_indexes": active_indexes,
@@ -1716,6 +1868,9 @@ def _build_solution_metadata(
         "stderr": (run_result.get("stderr") or "").strip(),
         "combo_dir": str(Path(combo_dir).as_posix()),
     }
+    if pose_metadata:
+        payload.update(pose_metadata)
+    return payload
 
 
 # -----------------------------------------------------------------------------
@@ -1821,6 +1976,13 @@ def cleanup_runtime_dirs() -> None:
 def main() -> None:
     """Orquesta el pipeline completo: separación, salidas geométricas y optimización."""
     try:
+        if DEBUG_LEVEL >= 1:
+            #LogThis("========================================================", "", "", "")
+            LogThis("===================== INICIO ===========================", "", "", "")
+            #LogThis("========================================================", "", "", "")
+        if DEBUG_LEVEL >= 2:
+            LogThis("RUNTIME_CLEANUP INITIAL", "INF", "Iniciando limpieza de directorios temporales...", "")
+
         ensure_clean_dir(str(PARSED_PARTS_TMP_DIR))
         robot_settings = get_robot_runtime_settings()
         anthro_root = robot_settings["anthro_root"]
@@ -1828,8 +1990,8 @@ def main() -> None:
         ensure_clean_robot_dirs(anthro_root)
         ensure_clean_robot_dirs(scara_root)
         ensure_clean_dir(str(LOAD_SLOT_CACHE_DIR))
-        _LOAD_SLOT_REF_CACHE.clear()
-
+        _LOAD_SLOT_SOURCE_CACHE.clear()
+        
         renamed = change_extension("INPUT")
         if renamed > 0:
             mss = (f"Archivos renombrados de .lpp a .cnc: {renamed}")
@@ -1841,13 +2003,13 @@ def main() -> None:
         if not files:
             mss = ("No hay archivos .cnc en INPUT")
             print(mss)
-            if DEBUG_LEVEL >= 2:
+            if DEBUG_LEVEL >= 1:
                 LogThis("INPUT_PROCESSING", "INF", mss, "")
             sys.exit(0)
 
         mss = (f"{len(files)} archivos .cnc encontrados en INPUT")
         print(mss)
-        if DEBUG_LEVEL >= 2:
+        if DEBUG_LEVEL >= 1:
             LogThis("INPUT_PROCESSING", "INF", mss, "")
 
         for filename in files:
@@ -1860,19 +2022,26 @@ def main() -> None:
             new_piece_files = parse_gcode_parts(file_lines, output_dir=PARSED_PARTS_TMP_DIR)
 
             if not new_piece_files:
-                print(f"    No se generaron piezas en la carpeta temporal interna para '{filename}'")
+                mss = (f"    No se generaron piezas en la carpeta temporal interna para '{filename}'")
+                print(mss)
+                if DEBUG_LEVEL >= 2:
+                    LogThis("INPUT_PROCESSING", "INF", mss, "")
                 continue
 
             mss = (f"    {len(new_piece_files)} piezas generadas")
             print(mss)
-            if DEBUG_LEVEL >= 2:
+            if DEBUG_LEVEL >= 1:
                 LogThis("INPUT_PROCESSING", "INF", mss, "")
             process_generated_pieces(new_piece_files, filename, head_info, staging_dir=PARSED_PARTS_TMP_DIR)
             ensure_clean_dir(str(PARSED_PARTS_TMP_DIR))
 
         print("\n")
-        print("=" * 70)
-        print("Procesamiento completo. Iniciando paso adicional con compute_ref.exe...")
+        mss2 =("=" * 70)
+        mss = ("Procesamiento completo. Iniciando paso adicional con compute_ref.exe...")
+        print(mss2)
+        print(mss)
+        if DEBUG_LEVEL >= 2:
+            LogThis("INPUT_PROCESSING", "INF", mss, "")
         process_out_cnc_with_tools(
             tools_dir="TOOLS",
             processed_tools_subdir="processed",
@@ -1882,17 +2051,39 @@ def main() -> None:
 
         print("\n")
         print("=" * 70)
-        print("\nGenerando informes de estadísticas por robot")
+        mss = ("--> Generando informes de estadísticas por robot")
+        print(mss)
+        if DEBUG_LEVEL >= 1:
+            LogThis("INPUT_PROCESSING", "INF", mss, "")
         for robot_label, robot_root in (("ANTHRO", anthro_root), ("SCARA", scara_root)):
             summary_path = os.path.join(robot_root, "OUT_solutions", "summary.json")
             if os.path.exists(summary_path):
                 try:
-                    generate_tool_report_files(summary_path, output_dir=os.path.join(robot_root, "OUT_solutions", "report"))
-                    mss = (f"Informe generado para {robot_label}: {summary_path}")
+                    mss = (f"Generando informe para {robot_label}: {summary_path}")
                     print(mss)
                     if DEBUG_LEVEL >= 2:
-                        LogThis("INPUT_PROCESSING", "INF", mss, "")
+                        LogThis("TOOL_REPORTING", "INF", mss, "")
+                    e01, e02 = generate_tool_report_files(summary_path, output_dir=os.path.join(robot_root, "OUT_solutions", "report"))
+                    if e01 is not None:
+                        print(e01)
+                        if DEBUG_LEVEL >= 1:
+                            LogThis("TOOL_REPORTING", "ERR", f"Error {robot_label}: {e01}", "")
+                    else:
+                        mss1 = (f"Informe de estadísticas para {robot_label} --> EXCEL generado correctamente")
+                        print("\n" + mss1)
+                        if DEBUG_LEVEL >= 1:
+                            LogThis("TOOL_REPORTING", "INF", mss1, "")
 
+                    if e02 is not None:
+                        print(e02)
+                        if DEBUG_LEVEL >= 1:
+                            LogThis("TOOL_REPORTING", "ERR", f"Error {robot_label}: {e02}", "")
+                    else:
+                        mss2 = (f"Informe de estadísticas para {robot_label} --> JSON generado correctamente")
+                        print("\n" + mss2)
+                        if DEBUG_LEVEL >= 1:
+                            LogThis("TOOL_REPORTING", "INF", mss2, "")
+                    
                 except Exception as exc:
                     mss = (f"Error generando informe de estadísticas para {robot_label}: {exc}")
                     print(mss)
@@ -1903,8 +2094,13 @@ def main() -> None:
                 print(mss)
                 if DEBUG_LEVEL >= 1:
                     LogThis("INPUT_PROCESSING", "INF", mss, "")
+
         ensure_clean_dir(str(PARSED_PARTS_TMP_DIR))
 
+    except KeyboardInterrupt:
+        print("\nProceso interrumpido por el usuario.")
+        if DEBUG_LEVEL >= 1:
+            LogThis("MAIN", "WRN", "Proceso interrumpido por el usuario.", "")
     finally:
         if DEBUG_LEVEL >= 2:
             LogThis("RUNTIME_CLEANUP FINAL", "INF", "Iniciando limpieza de directorios temporales...", "")

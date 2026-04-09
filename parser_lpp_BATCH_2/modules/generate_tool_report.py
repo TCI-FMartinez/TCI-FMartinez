@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 import argparse
-import csv
 import json
-#import math
 import os
 from collections import Counter, defaultdict
 from statistics import mean
+
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.utils import get_column_letter
 
 
 def safe_mean(values):
@@ -149,7 +151,6 @@ def derive_recommendations(rows, tool_stats, piece_stats):
             "Para estos casos conviene crear una variante compacta: menor paso entre actuadores, filas desplazadas, módulos más pequeños o una subherramienta específica para piezas estrechas o con zonas útiles muy localizadas."
         )
 
-    # Tool-specific recommendations
     for tool_name, stats in sorted(tool_stats.items(), key=lambda x: x[1]["success_rate"]):
         status_counts = stats["status_counts"]
         if stats["success_rate"] < 70.0:
@@ -162,7 +163,6 @@ def derive_recommendations(rows, tool_stats, piece_stats):
                     f"{tool_name}: su problema dominante es geométrico. Prioridad de rediseño: compactar la matriz y mejorar accesibilidad a zonas pequeñas."
                 )
 
-    # Dominant substitution patterns
     replacement_patterns = Counter()
     for piece in piece_stats:
         if piece["has_any_valid"] and piece["invalid_tools"]:
@@ -174,48 +174,6 @@ def derive_recommendations(rows, tool_stats, piece_stats):
         )
 
     return recs
-
-
-def write_csv_overview(path, overview, tool_stats):
-    with open(path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        writer.writerow(["metric", "value"])
-        writer.writerow(["total_rows", overview["total_rows"]])
-        writer.writerow(["total_pieces", overview["total_pieces"]])
-        writer.writerow(["total_tools", overview["total_tools"]])
-        writer.writerow(["valid_rows", overview["valid_rows"]])
-        writer.writerow(["invalid_rows", overview["invalid_rows"]])
-        writer.writerow(["valid_rate_pct", f"{overview['valid_rate']:.2f}"])
-        for status, count in sorted(overview["status_counts"].items()):
-            writer.writerow([f"status::{status}", count])
-        for tool, stats in sorted(tool_stats.items()):
-            writer.writerow([f"tool::{tool}::attempts", stats["attempts"]])
-            writer.writerow([f"tool::{tool}::valid", stats["valid"]])
-            writer.writerow([f"tool::{tool}::invalid", stats["invalid"]])
-            writer.writerow([f"tool::{tool}::success_rate_pct", f"{stats['success_rate']:.2f}"])
-
-
-def write_csv_pieces(path, piece_stats):
-    with open(path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        writer.writerow([
-            "piece_reference", "piece_id", "robot_group", "piece_file", "has_any_valid",
-            "valid_count", "invalid_count", "valid_tools", "invalid_tools", "best_valid_tool", "best_valid_fxmin"
-        ])
-        for piece in piece_stats:
-            writer.writerow([
-                piece["piece_reference"],
-                piece["piece_id"],
-                piece["robot_group"],
-                piece["piece_file"],
-                piece["has_any_valid"],
-                piece["valid_count"],
-                piece["invalid_count"],
-                ";".join(piece["valid_tools"]),
-                ";".join(piece["invalid_tools"]),
-                piece["best_valid_tool"] or "",
-                piece["best_valid_fxmin"] if piece["best_valid_fxmin"] is not None else "",
-            ])
 
 
 def build_markdown(overview, tool_stats, piece_stats, recommendations):
@@ -296,30 +254,173 @@ def write_json_summary(path, overview, tool_stats, piece_stats, recommendations)
         json.dump(payload, f, ensure_ascii=False, indent=2)
 
 
+def _apply_header_style(ws, row_idx=1):
+    fill = PatternFill("solid", fgColor="1F4E78")
+    font = Font(color="FFFFFF", bold=True)
+    thin = Side(style="thin", color="D9E2F3")
+    border = Border(bottom=thin)
+    for cell in ws[row_idx]:
+        cell.fill = fill
+        cell.font = font
+        cell.border = border
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+
+
+def _autosize_columns(ws, min_width=12, max_width=48):
+    widths = {}
+    for row in ws.iter_rows():
+        for cell in row:
+            value = "" if cell.value is None else str(cell.value)
+            widths[cell.column] = max(widths.get(cell.column, 0), len(value))
+    for column_idx, width in widths.items():
+        ws.column_dimensions[get_column_letter(column_idx)].width = max(min_width, min(max_width, width + 2))
+
+
+def _write_sheet_rows(ws, headers, rows):
+    ws.append(headers)
+    _apply_header_style(ws, 1)
+    ws.freeze_panes = "A2"
+    for row in rows:
+        ws.append(row)
+    _autosize_columns(ws)
+
+
+def write_report_workbook(path, overview, tool_stats, piece_stats, recommendations, rows):
+    wb = Workbook()
+    ws_overview = wb.active
+    ws_overview.title = "Resumen"
+
+    overview_rows = [
+        ["total_rows", overview["total_rows"]],
+        ["total_pieces", overview["total_pieces"]],
+        ["total_tools", overview["total_tools"]],
+        ["valid_rows", overview["valid_rows"]],
+        ["invalid_rows", overview["invalid_rows"]],
+        ["valid_rate_pct", overview["valid_rate"] / 100.0],
+    ]
+    overview_rows.extend([[f"status::{status}", count] for status, count in sorted(overview["status_counts"].items())])
+    overview_rows.extend([[f"robot::{robot}", count] for robot, count in sorted(overview["robot_group_counts"].items())])
+    _write_sheet_rows(ws_overview, ["metric", "value"], overview_rows)
+    ws_overview["B7"].number_format = "0.0%"
+    for cell in ws_overview["B"]:
+        if cell.row == 1:
+            continue
+        if isinstance(cell.value, (int, float)) and ws_overview.cell(cell.row, 1).value == "valid_rate_pct":
+            cell.number_format = "0.0%"
+
+    ws_tools = wb.create_sheet("Herramientas")
+    tool_rows = []
+    for tool, stats in sorted(tool_stats.items(), key=lambda x: (-x[1]["success_rate"], x[0])):
+        tool_rows.append([
+            tool,
+            stats["attempts"],
+            stats["valid"],
+            stats["invalid"],
+            stats["success_rate"] / 100.0,
+            stats["avg_active_valid"],
+            stats["avg_active_invalid"],
+            stats["avg_fxmin_valid"],
+            stats["avg_fxmin_invalid"],
+            "; ".join(f"{k}={v}" for k, v in sorted(stats["status_counts"].items())),
+            "; ".join(f"{robot}/{status}={count}" for (robot, status), count in sorted(stats["robot_group_counts"].items())),
+        ])
+    _write_sheet_rows(
+        ws_tools,
+        ["tool_name", "attempts", "valid", "invalid", "success_rate", "avg_active_valid", "avg_active_invalid", "avg_fxmin_valid", "avg_fxmin_invalid", "status_counts", "robot_group_counts"],
+        tool_rows,
+    )
+    for row in range(2, ws_tools.max_row + 1):
+        ws_tools.cell(row, 5).number_format = "0.0%"
+
+    ws_pieces = wb.create_sheet("Piezas")
+    piece_rows = []
+    for piece in piece_stats:
+        piece_rows.append([
+            piece["piece_reference"],
+            piece["piece_id"],
+            piece["robot_group"],
+            piece["piece_file"],
+            piece["has_any_valid"],
+            piece["valid_count"],
+            piece["invalid_count"],
+            ";".join(piece["valid_tools"]),
+            ";".join(piece["invalid_tools"]),
+            piece["best_valid_tool"] or "",
+            piece["best_valid_fxmin"],
+            "; ".join(f"{tool}={status}" for tool, status in sorted(piece["status_by_tool"].items())),
+        ])
+    _write_sheet_rows(
+        ws_pieces,
+        ["piece_reference", "piece_id", "robot_group", "piece_file", "has_any_valid", "valid_count", "invalid_count", "valid_tools", "invalid_tools", "best_valid_tool", "best_valid_fxmin", "status_by_tool"],
+        piece_rows,
+    )
+
+    ws_recs = wb.create_sheet("Recomendaciones")
+    rec_rows = [[idx, rec] for idx, rec in enumerate(recommendations, start=1)]
+    _write_sheet_rows(ws_recs, ["orden", "recomendacion"], rec_rows)
+    ws_recs.column_dimensions["B"].width = 120
+    for row in range(2, ws_recs.max_row + 1):
+        ws_recs.cell(row, 2).alignment = Alignment(wrap_text=True, vertical="top")
+
+    ws_raw = wb.create_sheet("Raw")
+    raw_headers = [
+        "robot_group", "piece_reference", "piece_id", "piece_file", "tool_name", "status", "solution_valid",
+        "tool_active_count", "tool_elements_total", "solver_fxmin", "solver_error_flag", "returncode_signed",
+        "center_distance_approx", "solution_json", "combo_dir"
+    ]
+    raw_rows = []
+    for row in rows:
+        raw_rows.append([
+            row.get("robot_group"),
+            row.get("piece_reference"),
+            row.get("piece_id"),
+            row.get("piece_file"),
+            row.get("tool_name"),
+            row.get("status"),
+            row.get("solution_valid"),
+            row.get("tool_active_count"),
+            row.get("tool_elements_total"),
+            row.get("solver_fxmin"),
+            row.get("solver_error_flag"),
+            row.get("returncode_signed"),
+            row.get("center_distance_approx"),
+            row.get("solution_json"),
+            row.get("combo_dir"),
+        ])
+    _write_sheet_rows(ws_raw, raw_headers, raw_rows)
+
+    for ws in wb.worksheets:
+        ws.sheet_view.showGridLines = False
+
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    wb.save(path)
+
+
 def generate_tool_report_files(input_json="summary.json", output_dir="report_out", base_name="tool_report"):
+    e01 = e02 = None
+    mess1 = mess2 = None
     rows = load_rows(input_json)
     overview, tool_stats, piece_stats = build_stats(rows)
     recommendations = derive_recommendations(rows, tool_stats, piece_stats)
 
     os.makedirs(output_dir, exist_ok=True)
     md_path = os.path.join(output_dir, f"{base_name}.md")
-    overview_csv = os.path.join(output_dir, f"{base_name}_overview.csv")
-    pieces_csv = os.path.join(output_dir, f"{base_name}_pieces.csv")
+    xlsx_path = os.path.join(output_dir, f"{base_name}.xlsx")
     json_path = os.path.join(output_dir, f"{base_name}_summary.json")
 
     markdown = build_markdown(overview, tool_stats, piece_stats, recommendations)
     with open(md_path, "w", encoding="utf-8") as f:
         f.write(markdown)
+    try:
+        write_report_workbook(xlsx_path, overview, tool_stats, piece_stats, recommendations, rows)
+    except Exception as e01:
+        mess1= (f"Error al generar el informe Excel: {e01}")
+    try:
+        write_json_summary(json_path, overview, tool_stats, piece_stats, recommendations)
+    except Exception as e02:
+        mess2 = (f"Error al generar el resumen JSON: {e02}")
 
-    write_csv_overview(overview_csv, overview, tool_stats)
-    write_csv_pieces(pieces_csv, piece_stats)
-    write_json_summary(json_path, overview, tool_stats, piece_stats, recommendations)
-
-    print("Informe generado:")
-    print(f"- Markdown: {md_path}")
-    print(f"- CSV resumen: {overview_csv}")
-    print(f"- CSV piezas: {pieces_csv}")
-    print(f"- JSON resumen: {json_path}")
+    return mess1, mess2
 
 
 if __name__ == "__main__":

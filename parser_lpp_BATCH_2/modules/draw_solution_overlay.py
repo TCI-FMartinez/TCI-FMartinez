@@ -17,7 +17,6 @@ from modules.draw_part import contour_to_points, contours_bbox
 from modules.cnc_to_dxf import parse_cnc_contours, simplify_contour_geometry
 
 
-
 def _load_json(path: str | Path) -> Any:
     with open(path, 'r', encoding='utf-8') as f:
         return json.load(f)
@@ -246,12 +245,52 @@ def _metadata_active_indexes(metadata: dict[str, Any] | None, expected_len: int)
 
 def _metadata_piece_center(metadata: dict[str, Any] | None) -> list[float] | None:
     md = metadata or {}
-    for key in ('piece_center_approx', 'pieceCenter', 'piece_center', 'pieceCenterApprox'):
+    for key in ('piece_center_sheet_approx', 'piece_center_approx', 'pieceCenter', 'piece_center', 'pieceCenterApprox'):
         if key in md:
             center = _extract_first_xy(md.get(key))
             if center is not None:
                 return center
     return None
+
+
+
+def _normalize_bbox_points(value: Any) -> list[list[float]]:
+    points: list[list[float]] = []
+    if not isinstance(value, (list, tuple)):
+        return points
+    for pt in value:
+        if isinstance(pt, (list, tuple)) and len(pt) >= 2:
+            try:
+                points.append([float(pt[0]), float(pt[1])])
+            except Exception:
+                continue
+    return points
+
+
+
+def _metadata_piece_pose(metadata: dict[str, Any] | None) -> dict[str, Any] | None:
+    md = metadata or {}
+    if str(md.get('coord_frame') or '').strip().lower() != 'load_slot_local_to_sheet':
+        return None
+
+    local_bbox = _normalize_bbox_points(md.get('reference_bbox_local'))
+    sheet_bbox = _normalize_bbox_points(md.get('piece_sheet_bbox'))
+    local_origin = _extract_first_xy(md.get('reference_origin_local'))
+    sheet_origin = _extract_first_xy(md.get('piece_sheet_origin'))
+    if not local_bbox or not sheet_bbox or local_origin is None or sheet_origin is None:
+        return None
+
+    local_angle = _safe_float(md.get('reference_angle_local_rad')) or 0.0
+    sheet_angle = _safe_float(md.get('piece_sheet_angle_rad')) or 0.0
+    return {
+        'local_bbox': local_bbox,
+        'sheet_bbox': sheet_bbox,
+        'local_origin': local_origin,
+        'sheet_origin': sheet_origin,
+        'local_angle': local_angle,
+        'sheet_angle': sheet_angle,
+        'delta_angle': sheet_angle - local_angle,
+    }
 
 
 def _solution_is_reliable(
@@ -357,89 +396,17 @@ def _rotate_translate_point(local_xy: list[float] | tuple[float, float], center_
     return [center_xy[0] + c * x - s * y, center_xy[1] + s * x + c * y]
 
 
-def _wrap_angle_pi(angle_rad: float) -> float:
-    return (angle_rad + math.pi) % (2.0 * math.pi) - math.pi
 
-
-def _axis_angle_delta(target_angle_rad: float, source_angle_rad: float) -> float:
-    delta = _wrap_angle_pi(target_angle_rad - source_angle_rad)
-    if delta > (math.pi / 2.0):
-        delta -= math.pi
-    elif delta < (-math.pi / 2.0):
-        delta += math.pi
-    return delta
-
-
-def _bbox_center(bbox: Any) -> list[float] | None:
-    if not isinstance(bbox, (list, tuple)) or len(bbox) < 2:
-        return None
-    pts = []
-    for pt in bbox:
-        if isinstance(pt, (list, tuple)) and len(pt) >= 2:
-            pts.append([float(pt[0]), float(pt[1])])
-    if len(pts) < 2:
-        return None
-    return [
-        sum(p[0] for p in pts) / len(pts),
-        sum(p[1] for p in pts) / len(pts),
-    ]
-
-
-def _bbox_major_axis_angle(bbox: Any) -> float:
-    if not isinstance(bbox, (list, tuple)) or len(bbox) < 2:
-        return 0.0
-    pts = []
-    for pt in bbox:
-        if isinstance(pt, (list, tuple)) and len(pt) >= 2:
-            pts.append([float(pt[0]), float(pt[1])])
-    if len(pts) < 2:
-        return 0.0
-    if len(pts) >= 2 and pts[0] == pts[-1]:
-        pts = pts[:-1]
-    if len(pts) < 2:
-        return 0.0
-
-    best_angle = 0.0
-    best_len2 = -1.0
-    for idx in range(len(pts)):
-        a = pts[idx]
-        b = pts[(idx + 1) % len(pts)]
-        dx = float(b[0]) - float(a[0])
-        dy = float(b[1]) - float(a[1])
-        len2 = dx * dx + dy * dy
-        if len2 > best_len2:
-            best_len2 = len2
-            best_angle = math.atan2(dy, dx)
-    return best_angle
-
-
-def _points_principal_axis_angle(points: list[list[float]] | list[tuple[float, float]]) -> float:
-    if len(points) < 2:
-        return 0.0
-    arr = np.asarray(points, dtype=float)
-    if arr.ndim != 2 or arr.shape[1] < 2:
-        return 0.0
-    arr = arr[:, :2]
-    arr = arr - np.mean(arr, axis=0, keepdims=True)
-    if arr.shape[0] < 2:
-        return 0.0
-    cov = arr.T @ arr
-    vals, vecs = np.linalg.eigh(cov)
-    axis = vecs[:, int(np.argmax(vals))]
-    return math.atan2(float(axis[1]), float(axis[0]))
-
-
-def _solution_to_piece_frame_point(
-    point_xy: list[float] | tuple[float, float],
-    solution_piece_center_xy: list[float],
-    drawn_piece_center_xy: list[float],
-    frame_angle_rad: float,
-) -> list[float]:
-    local = [
-        float(point_xy[0]) - float(solution_piece_center_xy[0]),
-        float(point_xy[1]) - float(solution_piece_center_xy[1]),
-    ]
-    return _rotate_translate_point(local, drawn_piece_center_xy, frame_angle_rad)
+def _transform_local_point_to_sheet(local_xy: list[float] | tuple[float, float], pose: dict[str, Any] | None) -> list[float]:
+    if pose is None:
+        return [float(local_xy[0]), float(local_xy[1])]
+    x_rel = float(local_xy[0]) - float(pose['local_origin'][0])
+    y_rel = float(local_xy[1]) - float(pose['local_origin'][1])
+    c = math.cos(float(pose['delta_angle']))
+    s = math.sin(float(pose['delta_angle']))
+    x_rot = c * x_rel - s * y_rel
+    y_rot = s * x_rel + c * y_rel
+    return [float(pose['sheet_origin'][0]) + x_rot, float(pose['sheet_origin'][1]) + y_rot]
 
 
 def _draw_solution_not_found_banner(canvas: np.ndarray, text: str = 'Solucion no encontrada') -> None:
@@ -533,68 +500,24 @@ def draw_solution_overlay_png(
 
     piece_center = [0.5 * (min_x + max_x), 0.5 * (min_y + max_y)]
     metadata_piece_center = _metadata_piece_center(metadata)
-    solution_bbox = solution_payload.get('boundingBox') if isinstance(solution_payload, dict) else None
-    solution_piece_center = _bbox_center(solution_bbox) or metadata_piece_center or piece_center
-    solution_piece_angle = _bbox_major_axis_angle(solution_bbox)
+    piece_pose = _metadata_piece_pose(metadata)
+    frame_offset = [0.0, 0.0]
+    if piece_pose is None and metadata_piece_center is not None:
+        frame_offset = [piece_center[0] - metadata_piece_center[0], piece_center[1] - metadata_piece_center[1]]
 
-    drawn_piece_points: list[list[float]] = []
-    for contour in contours:
-        drawn_piece_points.extend(contour_to_points(contour, arc_segments=72, close_if_open=True))
-    drawn_piece_angle = _points_principal_axis_angle(drawn_piece_points)
-    frame_angle = _axis_angle_delta(drawn_piece_angle, solution_piece_angle)
+    def project_solution_point(local_pt: list[float] | tuple[float, float]) -> list[float]:
+        if piece_pose is not None:
+            return _transform_local_point_to_sheet(local_pt, piece_pose)
+        return [float(local_pt[0]) + frame_offset[0], float(local_pt[1]) + frame_offset[1]]
 
     pc = canvas_xy(piece_center)
     cv2.drawMarker(canvas, pc, (0, 0, 0), markerType=cv2.MARKER_CROSS, markerSize=18, thickness=2)
 
     drawn_tool_center = None
-    total_tool_angle = tool_angle + frame_angle
-
-    if tool_center is not None:
-        drawn_tool_center = _solution_to_piece_frame_point(
-            tool_center,
-            solution_piece_center,
-            piece_center,
-            frame_angle,
-        )
-
-        if solution_is_reliable and tool_outline:
-            mapped_outline = [
-                canvas_xy(_rotate_translate_point(pt, drawn_tool_center, total_tool_angle))
-                for pt in tool_outline
-            ]
-            for a, b in zip(mapped_outline[:-1], mapped_outline[1:]):
-                cv2.line(canvas, a, b, (90, 90, 90), 1, cv2.LINE_AA)
-
-        if explicit_points and len(explicit_points) > 1:
-            if solution_is_reliable:
-                for idx, pt in enumerate(explicit_points):
-                    absolute_pt = _rotate_translate_point(pt, drawn_tool_center, total_tool_angle)
-                    mapped = canvas_xy(absolute_pt)
-                    radius_px = 10
-                    is_active = idx in active_indexes
-                    if is_active:
-                        cv2.circle(canvas, mapped, radius_px, (0, 180, 0), -1)
-                        cv2.circle(canvas, mapped, radius_px, (0, 90, 0), 2)
-                    else:
-                        cv2.circle(canvas, mapped, radius_px, (150, 150, 150), 2)
-        else:
-            for tool in tool_positions:
-                absolute = _rotate_translate_point(tool['position'], drawn_tool_center, total_tool_angle)
-                mapped = canvas_xy(absolute)
-                radius_px = max(4, int(round((tool.get('diameter') or 0.0) * 0.5 * scale)))
-                is_active = tool['index'] in active_indexes if solution_is_reliable else False
-                if solution_is_reliable and is_active:
-                    cv2.circle(canvas, mapped, radius_px, (0, 180, 0), -1)
-                    cv2.circle(canvas, mapped, radius_px, (0, 90, 0), 2)
-                else:
-                    cv2.circle(canvas, mapped, radius_px, (150, 150, 150), 2)
-    elif explicit_points and len(explicit_points) > 1:
-        transformed_points = [
-            _solution_to_piece_frame_point(pt, solution_piece_center, piece_center, frame_angle)
-            for pt in explicit_points
-        ]
+    if explicit_points and len(explicit_points) > 1:
+        projected_points = [project_solution_point(pt) for pt in explicit_points]
         if solution_is_reliable:
-            for idx, absolute_pt in enumerate(transformed_points):
+            for idx, absolute_pt in enumerate(projected_points):
                 mapped = canvas_xy(absolute_pt)
                 radius_px = 10
                 is_active = idx in active_indexes
@@ -604,9 +527,30 @@ def draw_solution_overlay_png(
                 else:
                     cv2.circle(canvas, mapped, radius_px, (150, 150, 150), 2)
         drawn_tool_center = [
-            sum(p[0] for p in transformed_points) / len(transformed_points),
-            sum(p[1] for p in transformed_points) / len(transformed_points),
+            sum(p[0] for p in projected_points) / len(projected_points),
+            sum(p[1] for p in projected_points) / len(projected_points),
         ]
+    elif tool_center is not None:
+        local_tool_center = [float(tool_center[0]), float(tool_center[1])]
+        if solution_is_reliable and tool_outline:
+            mapped_outline = [
+                canvas_xy(project_solution_point(_rotate_translate_point(pt, local_tool_center, tool_angle)))
+                for pt in tool_outline
+            ]
+            for a, b in zip(mapped_outline[:-1], mapped_outline[1:]):
+                cv2.line(canvas, a, b, (90, 90, 90), 1, cv2.LINE_AA)
+        for tool in tool_positions:
+            absolute_local = _rotate_translate_point(tool['position'], local_tool_center, tool_angle)
+            absolute = project_solution_point(absolute_local)
+            mapped = canvas_xy(absolute)
+            radius_px = max(4, int(round((tool.get('diameter') or 0.0) * 0.5 * scale)))
+            is_active = tool['index'] in active_indexes if solution_is_reliable else False
+            if solution_is_reliable and is_active:
+                cv2.circle(canvas, mapped, radius_px, (0, 180, 0), -1)
+                cv2.circle(canvas, mapped, radius_px, (0, 90, 0), 2)
+            else:
+                cv2.circle(canvas, mapped, radius_px, (150, 150, 150), 2)
+        drawn_tool_center = project_solution_point(local_tool_center)
 
     if drawn_tool_center is None:
         ref_payload = solution_payload if isinstance(solution_payload, dict) else {}
@@ -641,6 +585,8 @@ def _infer_paths_from_combo_dir(combo_dir: str | Path) -> tuple[Path, Path, Path
     metadata_path = combo_dir / 'metadata.json'
     metadata = _load_json(metadata_path) if metadata_path.exists() else None
     project_root = combo_dir.parent.parent.parent
+    if not (project_root / 'TOOLS').exists() and (project_root.parent / 'TOOLS').exists():
+        project_root = project_root.parent
 
     if metadata:
         piece_file = metadata.get('piece_file')
