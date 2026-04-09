@@ -12,11 +12,12 @@ Pipeline para separar programas `.lpp`/`.cnc` en piezas individuales, generar su
    - separa cada pieza en un `.cnc` individual
    - reescribe la cabecera de cada pieza con metadata calculada
    - clasifica cada pieza entre `SCARA` o `ANTHRO`
+   - si `robots.scara.enabled=false`, todas las piezas van a `ANTHRO`
    - genera su `OUT_png` y `OUT_dxf` dentro de la carpeta del robot asignado
 
 2. fase de optimización pieza + herramienta
    - recorre los `.cnc` generados en `ANTHRO/OUT_cnc` y `SCARA/OUT_cnc`
-   - recorre todas las herramientas JSON del directorio `TOOLS`
+   - selecciona herramientas por robot según `default_tool` y `allow_other_tools`
    - genera una versión procesada de cada herramienta en `TOOLS/processed`
    - construye un `ref_*.json` por pieza
    - llama a `module_ai2/compute_ref.exe`
@@ -118,10 +119,15 @@ Ejemplo:
   },
   "robots": {
     "anthro": {
-      "root_dir": "ANTHRO"
+      "root_dir": "ANTHRO",
+      "default_tool": "tool_H04_pos1.json",
+      "allow_other_tools": true
     },
     "scara": {
+      "enabled": true,
       "root_dir": "SCARA",
+      "default_tool": "tool_A.json",
+      "allow_other_tools": true,
       "filters": {
         "max_bbox_x": 500.0,
         "max_bbox_y": 500.0,
@@ -149,11 +155,21 @@ Ejemplo:
 - `compute_ref.max_compute_time`
   - tiempo máximo que se pasa a `compute_ref.exe` por combinación pieza + herramienta
 - `compute_ref.enhance_opti`
-  - quinto argumento del solver
+  - quinto argumento del solver necesario.
 - `robots.anthro.root_dir`
   - carpeta raíz de salidas del robot antropomórfico
+- `robots.anthro.default_tool`
+  - herramienta montada por defecto en ANTHRO; se puede escribir con o sin `.json`
+- `robots.anthro.allow_other_tools`
+  - si es `false`, ANTHRO solo prueba su herramienta por defecto
+- `robots.scara.enabled`
+  - si es `false`, SCARA queda deshabilitado y todas las piezas se envían a ANTHRO
 - `robots.scara.root_dir`
   - carpeta raíz de salidas del robot SCARA
+- `robots.scara.default_tool`
+  - herramienta montada por defecto en SCARA; se puede escribir con o sin `.json`
+- `robots.scara.allow_other_tools`
+  - si es `false`, SCARA solo prueba su herramienta por defecto
 - `robots.scara.filters`
   - filtros para decidir si una pieza va a `SCARA`; si no pasa, va a `ANTHRO`
 - `materials.known`
@@ -163,6 +179,46 @@ Ejemplo:
 
 Nota:
 Si en la cabecera de una pieza aparece `FE`, `material_profile()` no necesita lógica fija en código para entenderlo: lo resolverá con `config.json` como familia `STEEL`, densidad base `7.85 g/cm3` y `ferromagnetic=true`.
+
+
+### Selección de herramientas por robot
+
+- Si `allow_other_tools=true` y existe `default_tool`, esa herramienta se prueba primero y luego el resto.
+- Si `allow_other_tools=false`, el robot solo prueba `default_tool`.
+- Si `allow_other_tools=false` y `default_tool` no existe en `TOOLS/`, ese robot no ejecuta `compute_ref`.
+- La búsqueda de `default_tool` acepta nombre con o sin extensión `.json`.
+
+### Comportamiento recomendado de la configuración
+
+Esta combinación de parámetros define el comportamiento real de cada robot:
+
+- `robots.scara.enabled=false`
+  - SCARA queda deshabilitado y no recibe ninguna pieza.
+  - Todas las piezas se clasifican y se procesan con `ANTHRO`, aunque SCARA tenga `default_tool` definido en el config.
+
+- `robots.<robot>.default_tool`
+  - indica qué herramienta está montada por defecto en ese robot.
+  - el nombre debe corresponder con un JSON existente en `TOOLS/`, con o sin extensión `.json`.
+
+- `robots.<robot>.allow_other_tools=false`
+  - el robot trabaja únicamente con su herramienta montada por defecto.
+  - no intenta cambiar a otras herramientas ni probar alternativas.
+
+- `robots.<robot>.allow_other_tools=true`
+  - el robot intenta primero su herramienta por defecto.
+  - si esa no resuelve la pieza, puede probar el resto de herramientas disponibles.
+
+Ejemplo operativo con esta configuración:
+
+- `ANTHRO.default_tool = tool_H04_pos1`
+- `SCARA.default_tool = tool_A`
+
+Resultado:
+
+- si `SCARA.enabled=false`, todo se hará con `ANTHRO`, independientemente del `default_tool` configurado en SCARA.
+- si `SCARA.enabled=true`, cada pieza se enviará a SCARA o ANTHRO según los filtros de clasificación.
+- una vez asignada la pieza a un robot, ese robot empezará probando su `default_tool`.
+- si además `allow_other_tools=false`, el proceso queda restringido a esa única herramienta.
 
 ### Orden de resolución del material
 

@@ -5,7 +5,9 @@
   },
   "robots": {
     "anthro": {
-      "root_dir": "OUTPUT/ANTHRO"
+      "root_dir": "OUTPUT/ANTHRO",
+      "default_tool": "tool_H04_pos1.json",
+      "allow_other_tools": true
     },
     "scara": {
       "root_dir": "OUTPUT/SCARA",
@@ -16,7 +18,10 @@
         "ferromagnetic": null,
         "material_family_any": [],
         "material_contains_any": []
-      }
+      },
+      "enabled": true,
+      "default_tool": "tool_A.json",
+      "allow_other_tools": true
     }
   },
   "materials": {
@@ -70,11 +75,11 @@
       "STAINLESS": {
         "aliases": [
           "INOX",
-		      "Inoxidable",
-		      "A-304",
+          "Inoxidable",
+          "A-304",
           "A304",
           "A316",
-		      "A-316",
+          "A-316",
           "STAINLESS",
           "AISI 304",
           "AISI304",
@@ -95,7 +100,7 @@
           "STEEL",
           "HIERRO",
           "GALV",
-		      "GALVA",
+          "GALVA",
           "DC01",
           "DD11"
         ],

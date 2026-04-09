@@ -40,6 +40,7 @@ from modules.draw_solution_overlay import draw_solution_overlay_png
 from modules.generate_tool_report import generate_tool_report_files
 from modules.cnc_to_dxf import parse_cnc_contours, simplify_contour_geometry
 from modules.cnc_to_dxf import cnc_to_single_dxf
+from modules.logthis import LogThis
 from module_ai2.load_slot import load_slot as load_slot_script
 
 
@@ -49,13 +50,22 @@ from module_ai2.load_slot import load_slot as load_slot_script
 
 META_PATTERN = re.compile(r"^\(\s*META\s+([A-Z0-9_]+)\s*:\s*(.*?)\s*\)$", re.IGNORECASE)
 
+DEBUG_LEVEL = 1  # 0 = sin logs, 1 = info básica, 2 = debug detallado
 LOAD_SLOT_CACHE_DIR = Path("OUT_ref_cache")
 INTERNAL_TMP_ROOT = Path("_internal")
 PARSED_PARTS_TMP_DIR = INTERNAL_TMP_ROOT / "parsed_parts"
 _LOAD_SLOT_REF_CACHE: dict[str, list[dict[str, Any]] | None] = {}
+_RUNTIME_CONFIG_CACHE: dict[str, Any] | None = None
 
 CONFIG_PATH = Path(__file__).with_name("config.json")
 DEFAULT_CONFIG: dict[str, Any] = {
+    "_meta": {
+        "config_version": 1,
+        "generated_by": "@F_Martinez - TCI Cutting",
+        "generated_at": None,
+        "debug_level": 1,
+        "description": "Archivo de configuración generado automáticamente. Puedes editar los valores según tu instalación.",
+    },
     "compute_ref": {
         "max_compute_time": 2,
         "enhance_opti": 1,
@@ -63,9 +73,14 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "robots": {
         "anthro": {
             "root_dir": "ANTHRO",
+            "default_tool": "tool_A",
+            "allow_other_tools": True,
         },
         "scara": {
+            "enabled": True,
             "root_dir": "SCARA",
+            "default_tool": "tool_H04_pos0",
+            "allow_other_tools": True,
             "filters": {
                 "max_bbox_x": 500.0,
                 "max_bbox_y": 500.0,
@@ -111,7 +126,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         }
     },
 }
-_RUNTIME_CONFIG_CACHE: dict[str, Any] | None = None
+
 
 
 @contextmanager
@@ -141,9 +156,30 @@ def ensure_clean_robot_dirs(robot_root: str | Path) -> None:
     ensure_clean_dir(os.path.join(robot_root, "OUT_png"))
     ensure_clean_dir(os.path.join(robot_root, "OUT_solutions"))
 
+def ensure_config_file(config_path: str | Path = CONFIG_PATH) -> Path:
+    """Crea config.json con valores por defecto si no existe."""
+    config_path = Path(config_path)
+    if config_path.exists():
+        return config_path
+
+    try:
+        config_path.write_text(
+            json.dumps(DEFAULT_CONFIG, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        mss = (f"Se ha creado '{config_path}' con la configuración por defecto.")
+        if DEBUG_LEVEL >= 2:
+            LogThis("CONFIG", "OUT", "Archivo de configuración creado", str(config_path))
+    except Exception as exc:
+        mss = (f"Aviso: no se pudo crear '{config_path}': {exc}")
+        print(mss)
+        if DEBUG_LEVEL >= 1:
+            LogThis("CONFIG", "ERR", "No se pudo crear config.json", str(exc))
+
+    return config_path
 
 def get_robot_runtime_settings() -> dict[str, Any]:
-    """Devuelve raíces de salida y filtros por robot desde config.json."""
+    """Devuelve raíces, flags y preferencias de herramientas por robot desde config.json."""
     config = load_runtime_config()
     robots = config.get("robots", {}) if isinstance(config, dict) else {}
     anthro_cfg = robots.get("anthro", {}) if isinstance(robots.get("anthro", {}), dict) else {}
@@ -151,14 +187,20 @@ def get_robot_runtime_settings() -> dict[str, Any]:
 
     anthro_root = str(anthro_cfg.get("root_dir") or "ANTHRO").strip() or "ANTHRO"
     scara_root = str(scara_cfg.get("root_dir") or "SCARA").strip() or "SCARA"
+    scara_enabled = bool(scara_cfg.get("enabled", True))
     scara_filters = scara_cfg.get("filters", {}) if isinstance(scara_cfg.get("filters", {}), dict) else {}
+    DEBUG_LEVEL = config.get("_meta", {}).get("debug_level", 1) if isinstance(config.get("_meta", {}), dict) else 1
 
     return {
         "anthro_root": anthro_root,
         "scara_root": scara_root,
+        "scara_enabled": scara_enabled,
         "scara_filters": copy.deepcopy(scara_filters),
+        "anthro_default_tool": str(anthro_cfg.get("default_tool") or "").strip(),
+        "anthro_allow_other_tools": bool(anthro_cfg.get("allow_other_tools", True)),
+        "scara_default_tool": str(scara_cfg.get("default_tool") or "").strip(),
+        "scara_allow_other_tools": bool(scara_cfg.get("allow_other_tools", True)),
     }
-
 
 def change_extension(directory: str = "INPUT") -> int:
     """Renombra archivos .lpp a .cnc dentro del directorio de entrada."""
@@ -216,20 +258,24 @@ def load_runtime_config(config_path: str | Path = CONFIG_PATH) -> dict[str, Any]
         return copy.deepcopy(_RUNTIME_CONFIG_CACHE)
 
     config = copy.deepcopy(DEFAULT_CONFIG)
-    config_path = Path(config_path)
+    config_path = ensure_config_file(config_path)
+
     if config_path.exists():
         try:
             user_config = _load_json(config_path)
             if isinstance(user_config, dict):
                 _deep_merge_dict(config, user_config)
             else:
-                print(f"Aviso: '{config_path}' no contiene un objeto JSON. Se usarán los valores por defecto.")
+                mss = (f"Aviso: '{config_path}' no contiene un objeto JSON. Se usarán los valores por defecto.")
+                if DEBUG_LEVEL >= 1:
+                    LogThis("CONFIG", "ERR", mss, "")
         except Exception as exc:
-            print(f"Aviso: no se pudo leer '{config_path}': {exc}. Se usarán los valores por defecto.")
+            mss = (f"Aviso: no se pudo leer '{config_path}': {exc}. Se usarán los valores por defecto!!")
+            if DEBUG_LEVEL >= 1:
+                LogThis("CONFIG", "ERR", mss, "")
 
     _RUNTIME_CONFIG_CACHE = config
     return copy.deepcopy(config)
-
 
 def _material_specs_from_config() -> list[tuple[str, dict[str, Any]]]:
     """Devuelve materiales conocidos definidos en config.json manteniendo el orden."""
@@ -395,6 +441,7 @@ def process_generated_pieces(
     staging_dir = Path(staging_dir)
     anthro_root = robot_settings["anthro_root"]
     scara_root = robot_settings["scara_root"]
+    scara_enabled = robot_settings["scara_enabled"]
     scara_filters = robot_settings["scara_filters"]
 
     for pf in piece_files:
@@ -406,14 +453,21 @@ def process_generated_pieces(
             scara_filters,
             anthro_root=anthro_root,
             scara_root=scara_root,
+            scara_enabled=scara_enabled,
             move_cnc=True,
         )
 
         if route["robot"] == "SCARA":
-            print(f"    SCARA OK -> {pf}")
+            mss = (f"    SCARA OK -> {pf}")
+            if DEBUG_LEVEL >= 2:
+                LogThis("ROUTING", "OUT", mss, "")
+            print(mss)
         else:
             detail = f" | {'; '.join(route['reasons'])}" if route["reasons"] else ""
-            print(f"    ANTHRO -> {pf}{detail}")
+            mss = (f"    ANTHRO -> {pf}{detail}")
+            if DEBUG_LEVEL >= 2:
+                LogThis("ROUTING", "OUT", mss, "")
+            print(mss)
 
         piece_path = route["piece_path"]
         png_path = route["png_path"]
@@ -421,21 +475,83 @@ def process_generated_pieces(
 
         draw_ok = draw_contours([piece_path], output_filename=png_path, out_WH=(800, 800), N=72, auto_close_open=True)
         if draw_ok:
-            print(f"    PNG creado: {os.path.basename(png_path)}")
+            mss = (f"    PNG creado: {os.path.basename(png_path)}")
+            if DEBUG_LEVEL >= 2:
+                LogThis("ROUTING", "OUT", mss, "")
+            print(mss)
         else:
-            print(f"    No se pudo crear el PNG de '{pf}'")
+            mss = (f"    No se pudo crear el PNG de '{pf}'")
+            if DEBUG_LEVEL >= 1:
+                LogThis("ROUTING", "ERR", mss, "")
+            print(mss)
 
         try:
             cnc_to_single_dxf(piece_path, dxf_path, geometry_only=True, separate_layers=False)
-            print(f"    DXF creado: {os.path.basename(dxf_path)}")
+            mss = (f"    DXF creado: {os.path.basename(dxf_path)}")
+            if DEBUG_LEVEL >= 2:
+                LogThis("ROUTING", "OUT", mss, "")
+            print(mss)
         except TypeError:
             try:
                 cnc_to_single_dxf(piece_path, dxf_path, geometry_only=True)
-                print(f"    DXF creado: {os.path.basename(dxf_path)}")
+                mss = (f"    DXF creado: {os.path.basename(dxf_path)}")
+                if DEBUG_LEVEL >= 2:
+                    LogThis("ROUTING", "OUT", mss, "")
+                print(mss)
             except Exception as e:
-                print(f"    Error al crear DXF de '{pf}': {e}")
+                mss = (f"    Error al crear DXF de '{pf}': {e}")
+                if DEBUG_LEVEL >= 1:
+                    LogThis("ROUTING", "ERR", mss, "")
+                print(mss)
         except Exception as e:
-            print(f"    Error al crear DXF de '{pf}': {e}")
+            mss = (f"    Error al crear DXF de '{pf}': {e}")
+            if DEBUG_LEVEL >= 1:
+                LogThis("ROUTING", "ERR", mss, "")
+            print(mss)
+
+
+def _normalize_tool_reference(tool_name: str | None) -> str:
+    """Normaliza un nombre de herramienta para poder buscarlo con o sin extensión."""
+    return Path(str(tool_name or "").strip()).stem.casefold()
+
+
+
+def _resolve_default_tool_name(tools_dir: str, default_tool: str | None) -> str | None:
+    """Busca la herramienta por defecto por nombre exacto o por stem, con o sin .json."""
+    normalized_target = _normalize_tool_reference(default_tool)
+    if not normalized_target:
+        return None
+
+    tool_names = _tool_candidates(tools_dir)
+    for name in tool_names:
+        if name.casefold() == str(default_tool).strip().casefold():
+            return name
+    for name in tool_names:
+        if Path(name).stem.casefold() == normalized_target:
+            return name
+    return None
+
+
+
+def _select_tool_names_for_robot(
+    tools_dir: str,
+    *,
+    default_tool: str | None,
+    allow_other_tools: bool,
+) -> tuple[list[str], str | None]:
+    """Devuelve la lista ordenada de herramientas a probar para un robot."""
+    tool_names = _tool_candidates(tools_dir)
+    if not tool_names:
+        return [], None
+
+    resolved_default = _resolve_default_tool_name(tools_dir, default_tool)
+    if not allow_other_tools:
+        return ([resolved_default] if resolved_default else []), resolved_default
+
+    if resolved_default:
+        remaining = [name for name in tool_names if name != resolved_default]
+        return [resolved_default, *remaining], resolved_default
+    return tool_names, None
 
 
 def process_robot_out_cnc_with_tools(
@@ -446,16 +562,35 @@ def process_robot_out_cnc_with_tools(
     max_compute_time: int,
     enhance_opti: int,
     solutions_dir: str,
+    *,
+    default_tool: str | None = None,
+    allow_other_tools: bool = True,
 ) -> list[dict[str, Any]]:
     """Ejecuta compute_ref.exe para un directorio CNC concreto de un robot."""
     cnc_files = [os.path.join(cnc_dir, name) for name in files_finder(cnc_dir, extensions=(".cnc",))]
     if not cnc_files:
-        print(f"No se encontraron CNCs en '{cnc_dir}' para {robot_label}")
+        mss = (f"No se encontraron CNCs en '{cnc_dir}' para {robot_label}")
+        if DEBUG_LEVEL >= 1:
+            LogThis("ROUTING", "ERR", mss, "")
+        print(mss)
         return []
 
-    tool_names = _tool_candidates(tools_dir)
+    tool_names, resolved_default_tool = _select_tool_names_for_robot(
+        tools_dir,
+        default_tool=default_tool,
+        allow_other_tools=allow_other_tools,
+    )
     if not tool_names:
-        print(f"No se encontraron herramientas JSON en '{tools_dir}'")
+        if default_tool and not allow_other_tools:
+            mss = (
+                f"{robot_label}: no se encontró la herramienta por defecto '{default_tool}' en '{tools_dir}'. "
+                "Se omite este robot porque no puede probar otras herramientas."
+            )
+        else:
+            mss = (f"No se encontraron herramientas JSON en '{tools_dir}'")
+        if DEBUG_LEVEL >= 1:
+            LogThis("ROUTING", "ERR", mss, "")
+        print(mss)
         return []
 
     processed_tools_dir = os.path.join(tools_dir, processed_tools_subdir)
@@ -465,6 +600,12 @@ def process_robot_out_cnc_with_tools(
     os.makedirs(png_dir, exist_ok=True)
 
     print(f"Procesando {len(cnc_files)} CNC(s) de {robot_label} con {len(tool_names)} herramienta(s) usando compute_ref.exe...")
+    if resolved_default_tool:
+        modo = "solo por defecto" if not allow_other_tools else "por defecto primero"
+        mss = (f"  Herramienta por defecto de {robot_label}: {resolved_default_tool} ({modo})")
+        if DEBUG_LEVEL >= 2:
+            LogThis("ROUTING", "OUT", mss, "")
+        print(mss)
 
     summary: list[dict[str, Any]] = []
 
@@ -480,7 +621,10 @@ def process_robot_out_cnc_with_tools(
                 material_json_path,
             )
         except Exception as exc:
-            print(f"    No se pudo generar material JSON para '{cnc_path}': {exc}")
+            mss = (f"    No se pudo generar material JSON para '{cnc_path}': {exc}")
+            if DEBUG_LEVEL >= 1:
+                LogThis("ROUTING", "ERR", mss, "")
+            print(mss)
             summary.append(
                 {
                     "robot": robot_label,
@@ -521,7 +665,10 @@ def process_robot_out_cnc_with_tools(
             try:
                 build_ref_json_for_piece(cnc_path, ref_json_path)
             except Exception as exc:
-                print(f"    No se pudo generar ref JSON para '{cnc_path}': {exc}")
+                mss = (f"    No se pudo generar ref JSON para '{cnc_path}': {exc}")
+                if DEBUG_LEVEL >= 1:
+                    LogThis("ROUTING", "ERR", mss, "")
+                print(mss)
                 summary.append(
                     {
                         "robot": robot_label,
@@ -546,13 +693,16 @@ def process_robot_out_cnc_with_tools(
             )
 
             if not run_result["ok"]:
-                print(f"    compute_ref no completado: {run_result.get('reason')}")
+                mss = (f"    compute_ref no completado: {run_result.get('reason')}")
                 if run_result.get("stdout"):
-                    print(f"    stdout: {run_result['stdout'].strip()}")
+                    mss =(f"    stdout: {run_result['stdout'].strip()}")
+                    print(mss)
                 if run_result.get("stderr"):
-                    print(f"    stderr: {run_result['stderr'].strip()}")
+                    mss =(f"    stderr: {run_result['stderr'].strip()}")
+                    print(mss)
             elif run_result.get("stdout"):
-                print(f"    salida: {run_result['stdout'].strip()}")
+                mss = (f"    salida: {run_result['stdout'].strip()}")
+                print(mss)
 
             solution_json_path = discover_solution_json(combo_dir, ref_json_path, run_result=run_result)
             metadata = _build_solution_metadata(
@@ -574,6 +724,8 @@ def process_robot_out_cnc_with_tools(
                     solver_metadata = _load_json(solver_metadata_path)
                 except Exception:
                     solver_metadata = None
+                    if DEBUG_LEVEL >= 1:
+                        LogThis("ROUTING", "ERR", f"No se pudo cargar metadata de solver para '{ref_json_path}'", "")
 
             overlay_name = f"{piece_stem}__{tool_stem}.png"
             combo_overlay_path = os.path.join(combo_dir, overlay_name)
@@ -622,6 +774,8 @@ def process_robot_out_cnc_with_tools(
 def read_gcode_file(filename: str) -> list[str]:
     """Lee un archivo CNC completo y lo devuelve como lista de líneas."""
     if not os.path.exists(filename):
+        if DEBUG_LEVEL >= 1:
+            LogThis("FILE_IO", "ERR", f"Archivo CNC no encontrado: {filename}", "")
         raise FileNotFoundError(f"Archivo '{filename}' no encontrado")
     with open(filename, "r", encoding="utf-8", errors="ignore") as f:
         return f.read().splitlines()
@@ -760,6 +914,8 @@ def _build_polyshape_from_contours(contours) -> tuple[Any | None, list[list[floa
         from shapely.geometry import LineString, Point, Polygon
         from shapely.ops import polygonize, triangulate, unary_union
     except Exception as exc:
+        if DEBUG_LEVEL >= 1:
+            LogThis("REF_JSON", "ERR", f"Shapely no disponible para construir referencia JSON: {exc}", "")
         raise RuntimeError(f"Shapely no disponible para construir la referencia JSON: {exc}")
 
     lines = []
@@ -858,7 +1014,9 @@ def _load_slot_ref_list_for_source(source_cnc: str | Path) -> list[dict[str, Any
         _LOAD_SLOT_REF_CACHE[cache_key] = ref_list
         return ref_list
     except Exception as exc:
-        print(f"    No se pudo reutilizar load_slot para '{source_cnc.name}': {exc}")
+        mss = (f"    No se pudo reutilizar load_slot para '{source_cnc.name}': {exc}")
+        if DEBUG_LEVEL >= 1:
+            LogThis("LOAD_SLOT", "ERR", mss, "")
         _LOAD_SLOT_REF_CACHE[cache_key] = None
         return None
 
@@ -879,6 +1037,8 @@ def _adapt_load_slot_ref_for_piece(piece_cnc: str | Path, piece_id: str, piece_n
     try:
         ref_index = int(str(piece_id).strip()) - 1
     except Exception:
+        if DEBUG_LEVEL >= 2:
+            LogThis("REF_JSON", "WRN", f"ID de pieza '{piece_id}' no es un índice válido para load_slot, se buscará por referencia", "")
         ref_index = None
 
     if ref_index is not None and 0 <= ref_index < len(ref_list):
@@ -918,6 +1078,8 @@ def _build_ref_json_for_piece_legacy(piece_cnc: str | Path, output_json: str | P
     contours = [simplify_contour_geometry(c) for c in contours]
     contours = [c for c in contours if c.entities]
     if not contours:
+        if DEBUG_LEVEL >= 1:
+            LogThis("REF_JSON", "ERR", f"No se detectaron contornos en '{piece_cnc}' para construir la referencia JSON", "")
         raise ValueError(f"No se detectaron contornos en '{piece_cnc}'")
 
     min_x, min_y, max_x, max_y = contours_bbox(contours, arc_segments=72)
@@ -1016,31 +1178,45 @@ def build_ref_json_for_piece(piece_cnc: str | Path, output_json: str | Path) -> 
 
 def _load_json(path: str | Path) -> Any:
     """Carga un JSON desde disco."""
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as exc:
+        if DEBUG_LEVEL >= 1:
+            LogThis("FILE_IO", "ERR", f"No se pudo cargar JSON desde '{path}': {exc}", "")
+        raise RuntimeError(f"No se pudo cargar JSON desde '{path}': {exc}") from exc
 
 
 def _dump_json(path: str | Path, payload: Any) -> None:
     """Guarda un JSON en disco creando carpetas intermedias si hace falta."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(payload, f, indent=2, ensure_ascii=False)
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2, ensure_ascii=False)
+    except Exception as exc:
+        if DEBUG_LEVEL >= 1:
+            LogThis("FILE_IO", "ERR", f"No se pudo guardar JSON en '{path}': {exc}", "")
+        raise RuntimeError(f"No se pudo guardar JSON en '{path}': {exc}") from exc
 
 
 def _flatten_tool_payload(payload: Any) -> list[dict[str, Any]]:
     """Normaliza diferentes variantes del JSON de herramienta a una lista plana."""
-    if isinstance(payload, list):
-        if payload and all(isinstance(item, dict) and "diameter" in item and "position" in item for item in payload):
-            return payload
-        if payload and isinstance(payload[0], dict) and isinstance(payload[0].get("tool"), list):
-            tool_items = payload[0]["tool"]
+    try:
+        if isinstance(payload, list):
+            if payload and all(isinstance(item, dict) and "diameter" in item and "position" in item for item in payload):
+                return payload
+            if payload and isinstance(payload[0], dict) and isinstance(payload[0].get("tool"), list):
+                tool_items = payload[0]["tool"]
+                if all(isinstance(item, dict) and "diameter" in item and "position" in item for item in tool_items):
+                    return tool_items
+        if isinstance(payload, dict) and isinstance(payload.get("tool"), list):
+            tool_items = payload["tool"]
             if all(isinstance(item, dict) and "diameter" in item and "position" in item for item in tool_items):
                 return tool_items
-    if isinstance(payload, dict) and isinstance(payload.get("tool"), list):
-        tool_items = payload["tool"]
-        if all(isinstance(item, dict) and "diameter" in item and "position" in item for item in tool_items):
-            return tool_items
+    except (Exception, ValueError) as exc:
+        if DEBUG_LEVEL >= 1:
+            LogThis("FILE_IO", "ERR", f"Error al aplanar el payload de la herramienta: {exc}", "")
     raise ValueError("Formato de herramienta JSON no soportado")
 
 
@@ -1060,6 +1236,8 @@ def build_tool_polygons(input_tool_path: str, output_dir: str) -> str:
         from module_ai2.compute_tool import compute_tool as compute_tool_script
         compute_tool_script_data = compute_tool_script
     except Exception as exc:
+        if DEBUG_LEVEL >= 1:
+            LogThis("TOOL_PROCESSING", "ERR", f"No se pudo importar compute_tool.py para procesar '{input_tool_path}': {exc}", "")
         raise RuntimeError(f"No se pudo importar compute_tool.py: {exc}")
 
     temp_input_path = os.path.join(output_dir, f"{base_name}__flat.json")
@@ -1157,6 +1335,8 @@ def _parse_compute_ref_report(text: str) -> dict[str, Any]:
             else:
                 info["xmin"] = raw_xmin
         except Exception:
+            if DEBUG_LEVEL >= 2:
+                LogThis("COMPUTE_REF", "WRN", f"No se pudo parsear xmin '{raw_xmin}' como literal, se deja como texto: {xmin_match.group(1).strip()}", "")
             info["xmin"] = raw_xmin
 
     fxmin_match = re.search(r"^\s*fxmin:\s*([^\r\n]+)", text, flags=re.MULTILINE)
@@ -1164,6 +1344,8 @@ def _parse_compute_ref_report(text: str) -> dict[str, Any]:
         try:
             info["fxmin"] = float(fxmin_match.group(1).strip())
         except Exception:
+            if DEBUG_LEVEL >= 2:
+                LogThis("COMPUTE_REF", "WRN", f"No se pudo parsear fxmin '{fxmin_match.group(1).strip()}' como float, se deja como texto: {fxmin_match.group(1).strip()}", "")
             info["fxmin"] = fxmin_match.group(1).strip()
 
     flag_matches = re.findall(r"^\s*(?:Error flag|Flag):\s*(-?\d+)", text, flags=re.MULTILINE)
@@ -1171,6 +1353,8 @@ def _parse_compute_ref_report(text: str) -> dict[str, Any]:
         try:
             info["error_flag"] = int(flag_matches[-1])
         except Exception:
+            if DEBUG_LEVEL >= 2:
+                LogThis("COMPUTE_REF", "WRN", f"No se pudo parsear error flag '{flag_matches[-1]}' como int, se deja como texto: {flag_matches[-1]}", "")
             pass
 
     saved_match = re.search(r"Solution saved to:\s*([^\r\n]+)", text, flags=re.IGNORECASE)
@@ -1216,6 +1400,8 @@ def run_computeref(
     try:
         result = subprocess.run(cmd, cwd=str(workdir_path), capture_output=True, text=True)
     except Exception as exc:
+        if DEBUG_LEVEL >= 1:
+            LogThis("COMPUTE_REF", "ERR", f"----->> Error al ejecutar compute_ref.exe: {exc}", "")
         return {
             "ok": False,
             "executed": False,
@@ -1581,12 +1767,24 @@ def process_out_cnc_with_tools(
     scara_root = robot_settings["scara_root"]
 
     robot_jobs = [
-        ("ANTHRO", os.path.join(anthro_root, "OUT_cnc"), os.path.join(anthro_root, "OUT_solutions")),
-        ("SCARA", os.path.join(scara_root, "OUT_cnc"), os.path.join(scara_root, "OUT_solutions")),
+        (
+            "ANTHRO",
+            os.path.join(anthro_root, cnc_dir),
+            os.path.join(anthro_root, solutions_dir),
+            robot_settings.get("anthro_default_tool"),
+            robot_settings.get("anthro_allow_other_tools", True),
+        ),
+        (
+            "SCARA",
+            os.path.join(scara_root, cnc_dir),
+            os.path.join(scara_root, solutions_dir),
+            robot_settings.get("scara_default_tool"),
+            robot_settings.get("scara_allow_other_tools", True),
+        ),
     ]
 
     any_processed = False
-    for robot_label, robot_cnc_dir, robot_solutions_dir in robot_jobs:
+    for robot_label, robot_cnc_dir, robot_solutions_dir, default_tool, allow_other_tools in robot_jobs:
         if not os.path.isdir(robot_cnc_dir) or not files_finder(robot_cnc_dir, extensions=(".cnc",)):
             print(f"No se encontraron CNCs para {robot_label} en '{robot_cnc_dir}'")
             continue
@@ -1599,11 +1797,22 @@ def process_out_cnc_with_tools(
             max_compute_time=max_compute_time,
             enhance_opti=enhance_opti,
             solutions_dir=robot_solutions_dir,
+            default_tool=default_tool,
+            allow_other_tools=allow_other_tools,
         )
 
     if not any_processed:
         print("No se encontraron CNCs en SCARA/OUT_cnc ni ANTHRO/OUT_cnc para procesar con compute_ref.exe")
 
+def cleanup_runtime_dirs() -> None:
+    for path in (PARSED_PARTS_TMP_DIR, LOAD_SLOT_CACHE_DIR):
+        try:
+            if path.exists():
+                shutil.rmtree(path)
+        except Exception as exc:
+            mss = (f"No se pudo limpiar '{path}': {exc}")
+            if DEBUG_LEVEL >= 1:
+                LogThis("RUNTIME_CLEANUP", "ERR", mss, "")
 
 # -----------------------------------------------------------------------------
 # Punto de entrada
@@ -1611,68 +1820,95 @@ def process_out_cnc_with_tools(
 
 def main() -> None:
     """Orquesta el pipeline completo: separación, salidas geométricas y optimización."""
-    ensure_clean_dir(str(PARSED_PARTS_TMP_DIR))
-    robot_settings = get_robot_runtime_settings()
-    anthro_root = robot_settings["anthro_root"]
-    scara_root = robot_settings["scara_root"]
-    ensure_clean_robot_dirs(anthro_root)
-    ensure_clean_robot_dirs(scara_root)
-    ensure_clean_dir(str(LOAD_SLOT_CACHE_DIR))
-    _LOAD_SLOT_REF_CACHE.clear()
-
-    renamed = change_extension("INPUT")
-    if renamed > 0:
-        print(f"Archivos renombrados de .lpp a .cnc: {renamed}")
-
-    files = files_finder("INPUT", extensions=(".cnc",))
-    if not files:
-        print("No hay archivos .cnc en INPUT")
-        sys.exit(0)
-
-    print(f"{len(files)} archivos .cnc encontrados en INPUT")
-
-    for filename in files:
-        print(f"\nProcesando '{filename}'...")
-        source_path = os.path.join("INPUT", filename)
-        file_lines = read_gcode_file(source_path)
-        head_info = parse_gcode_head(file_lines)
-
+    try:
         ensure_clean_dir(str(PARSED_PARTS_TMP_DIR))
-        new_piece_files = parse_gcode_parts(file_lines, output_dir=PARSED_PARTS_TMP_DIR)
+        robot_settings = get_robot_runtime_settings()
+        anthro_root = robot_settings["anthro_root"]
+        scara_root = robot_settings["scara_root"]
+        ensure_clean_robot_dirs(anthro_root)
+        ensure_clean_robot_dirs(scara_root)
+        ensure_clean_dir(str(LOAD_SLOT_CACHE_DIR))
+        _LOAD_SLOT_REF_CACHE.clear()
 
-        if not new_piece_files:
-            print(f"    No se generaron piezas en la carpeta temporal interna para '{filename}'")
-            continue
+        renamed = change_extension("INPUT")
+        if renamed > 0:
+            mss = (f"Archivos renombrados de .lpp a .cnc: {renamed}")
+            print(mss)
+            if DEBUG_LEVEL >= 2:
+                LogThis("INPUT_PROCESSING", "INF", mss, "")
 
-        print(f"    {len(new_piece_files)} piezas generadas")
-        process_generated_pieces(new_piece_files, filename, head_info, staging_dir=PARSED_PARTS_TMP_DIR)
+        files = files_finder("INPUT", extensions=(".cnc",))
+        if not files:
+            mss = ("No hay archivos .cnc en INPUT")
+            print(mss)
+            if DEBUG_LEVEL >= 2:
+                LogThis("INPUT_PROCESSING", "INF", mss, "")
+            sys.exit(0)
+
+        mss = (f"{len(files)} archivos .cnc encontrados en INPUT")
+        print(mss)
+        if DEBUG_LEVEL >= 2:
+            LogThis("INPUT_PROCESSING", "INF", mss, "")
+
+        for filename in files:
+            print(f"\nProcesando '{filename}'...")
+            source_path = os.path.join("INPUT", filename)
+            file_lines = read_gcode_file(source_path)
+            head_info = parse_gcode_head(file_lines)
+
+            ensure_clean_dir(str(PARSED_PARTS_TMP_DIR))
+            new_piece_files = parse_gcode_parts(file_lines, output_dir=PARSED_PARTS_TMP_DIR)
+
+            if not new_piece_files:
+                print(f"    No se generaron piezas en la carpeta temporal interna para '{filename}'")
+                continue
+
+            mss = (f"    {len(new_piece_files)} piezas generadas")
+            print(mss)
+            if DEBUG_LEVEL >= 2:
+                LogThis("INPUT_PROCESSING", "INF", mss, "")
+            process_generated_pieces(new_piece_files, filename, head_info, staging_dir=PARSED_PARTS_TMP_DIR)
+            ensure_clean_dir(str(PARSED_PARTS_TMP_DIR))
+
+        print("\n")
+        print("=" * 70)
+        print("Procesamiento completo. Iniciando paso adicional con compute_ref.exe...")
+        process_out_cnc_with_tools(
+            tools_dir="TOOLS",
+            processed_tools_subdir="processed",
+            max_compute_time=None,
+            enhance_opti=None,
+        )
+
+        print("\n")
+        print("=" * 70)
+        print("\nGenerando informes de estadísticas por robot")
+        for robot_label, robot_root in (("ANTHRO", anthro_root), ("SCARA", scara_root)):
+            summary_path = os.path.join(robot_root, "OUT_solutions", "summary.json")
+            if os.path.exists(summary_path):
+                try:
+                    generate_tool_report_files(summary_path, output_dir=os.path.join(robot_root, "OUT_solutions", "report"))
+                    mss = (f"Informe generado para {robot_label}: {summary_path}")
+                    print(mss)
+                    if DEBUG_LEVEL >= 2:
+                        LogThis("INPUT_PROCESSING", "INF", mss, "")
+
+                except Exception as exc:
+                    mss = (f"Error generando informe de estadísticas para {robot_label}: {exc}")
+                    print(mss)
+                    if DEBUG_LEVEL >= 1:
+                        LogThis("INPUT_PROCESSING", "INF", mss, "")
+            else:
+                mss = (f"No se encontró '{summary_path}' para generar el informe de estadísticas de {robot_label}.")
+                print(mss)
+                if DEBUG_LEVEL >= 1:
+                    LogThis("INPUT_PROCESSING", "INF", mss, "")
         ensure_clean_dir(str(PARSED_PARTS_TMP_DIR))
 
-    print("\n")
-    print("=" * 70)
-    print("Procesamiento completo. Iniciando paso adicional con compute_ref.exe...")
-    process_out_cnc_with_tools(
-        tools_dir="TOOLS",
-        processed_tools_subdir="processed",
-        max_compute_time=None,
-        enhance_opti=None,
-    )
-
-    print("\n")
-    print("=" * 70)
-    print("\nGenerando informes de estadísticas por robot")
-    for robot_label, robot_root in (("ANTHRO", anthro_root), ("SCARA", scara_root)):
-        summary_path = os.path.join(robot_root, "OUT_solutions", "summary.json")
-        if os.path.exists(summary_path):
-            try:
-                generate_tool_report_files(summary_path, output_dir=os.path.join(robot_root, "OUT_solutions", "report"))
-                print(f"Informe generado para {robot_label}: {summary_path}")
-            except Exception as exc:
-                print(f"Error generando informe de estadísticas para {robot_label}: {exc}")
-        else:
-            print(f"No se encontró '{summary_path}' para generar el informe de estadísticas de {robot_label}.")
-    ensure_clean_dir(str(PARSED_PARTS_TMP_DIR))
-
+    finally:
+        if DEBUG_LEVEL >= 2:
+            LogThis("RUNTIME_CLEANUP FINAL", "INF", "Iniciando limpieza de directorios temporales...", "")
+        cleanup_runtime_dirs()
 
 if __name__ == "__main__":
     main()

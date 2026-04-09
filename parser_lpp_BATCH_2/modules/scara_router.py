@@ -114,6 +114,7 @@ def route_piece_outputs(
     *,
     anthro_root: str | Path = "ANTHRO",
     scara_root: str | Path = "SCARA",
+    scara_enabled: bool = True,
     move_cnc: bool = True,
 ) -> dict[str, Any]:
     """
@@ -131,7 +132,10 @@ def route_piece_outputs(
     anthro_root = Path(anthro_root)
     scara_root = Path(scara_root)
 
-    passed, reasons = piece_passes_scara_filters(piece_meta, filters)
+    if scara_enabled:
+        passed, reasons = piece_passes_scara_filters(piece_meta, filters)
+    else:
+        passed, reasons = False, ["SCARA deshabilitado en config"]
 
     if passed:
         robot = "SCARA"
