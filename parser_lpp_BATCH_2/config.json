@@ -4,16 +4,16 @@
         "generated_by": "@F_Martinez - TCI Cutting",
         "generated_at": "09/06/2024 12:00:00",
         "description": "Puedes editar los valores según tu instalación.",
-        "debug_level": 2,
+        "debug_level": 1,
         "notes": [
             "Asegúrate de que las rutas de los robots sean correctas.",
             "Revisa los filtros para el robot SCARA según tus necesidades.",
             "Agrega o modifica materiales conocidos según tu inventario.",
-            "el nivel de LOG es 0 = sin LOG, 1 = LOG normal, 2 = LOG detallado (debug)."
+            "el nivel de LOG es: 0 = sin LOG, 1 = LOG normal, 2 = LOG detallado (debug)."
         ]
     },
   "compute_ref": {
-    "max_compute_time": 0.5,
+    "max_compute_time": 3,
     "enhance_opti": 1
   },
   "robots": {
@@ -34,7 +34,11 @@
       },
       "enabled": true,
       "default_tool": "tool_A.json",
-      "allow_other_tools": true
+      "allow_other_tools": false,
+      "allowed_tools": [
+        "tool_A.json",
+        "tool_B.json"
+      ]
     }
   },
   "materials": {

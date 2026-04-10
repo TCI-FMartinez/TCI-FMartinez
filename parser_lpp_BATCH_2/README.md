@@ -105,29 +105,30 @@ Desde la raíz del proyecto:
 python main.py
 ```
 
-## Configuración runtime
+## Configuración de herramientas por robot
 
-El comportamiento de `main.py` se controla desde `config.json`.
+La selección de herramientas se controla desde `config.json`, dentro del bloque `robots`.
 
 Ejemplo:
 
 ```json
 {
-  "compute_ref": {
-    "max_compute_time": 2,
-    "enhance_opti": 1
-  },
   "robots": {
     "anthro": {
       "root_dir": "ANTHRO",
-      "default_tool": "tool_H04_pos1.json",
+      "default_tool": "tool_A",
       "allow_other_tools": true
     },
     "scara": {
       "enabled": true,
       "root_dir": "SCARA",
-      "default_tool": "tool_A.json",
+      "default_tool": "tool_H04_pos0",
       "allow_other_tools": true,
+      "allowed_tools": [
+        "tool_H04_pos0",
+        "tool_H04_pos1",
+        "tool_A"
+      ],
       "filters": {
         "max_bbox_x": 500.0,
         "max_bbox_y": 500.0,
@@ -137,18 +138,113 @@ Ejemplo:
         "material_contains_any": []
       }
     }
-  },
-  "materials": {
-    "known": {
-      "STEEL": {
-        "aliases": ["FE", "S235", "ACERO", "STEEL"],
-        "density_g_cm3": 7.85,
-        "ferromagnetic": true
-      }
-    }
   }
 }
 ```
+
+### Parámetros de selección
+
+#### `default_tool`
+Herramienta montada por defecto en el robot. Si existe en la carpeta `TOOLS`, se intentará usar primero.
+
+#### `allow_other_tools`
+Define si el robot puede probar herramientas adicionales aparte de la montada por defecto.
+
+- `true`: prueba primero la herramienta por defecto y después el resto de herramientas permitidas.
+- `false`: solo prueba la herramienta por defecto.
+
+#### `allowed_tools` (solo SCARA)
+Lista blanca de herramientas permitidas para SCARA.
+
+Si esta lista contiene elementos, SCARA solo podrá usar herramientas incluidas en ella.
+Los nombres pueden indicarse con o sin extensión `.json`, por ejemplo:
+
+```json
+"allowed_tools": ["tool_H04_pos0", "tool_H04_pos1", "tool_A"]
+```
+
+o bien:
+
+```json
+"allowed_tools": ["tool_H04_pos0.json", "tool_H04_pos1.json", "tool_A.json"]
+```
+
+La comparación se hace por nombre de fichero o por `stem`, así que ambas formas son válidas.
+
+### Precedencia de la configuración en SCARA
+
+La lógica de selección de herramientas para SCARA queda así:
+
+1. Si `enabled = false`, no se enrutan piezas a SCARA.
+2. Si `allowed_tools` está vacía o no existe, SCARA puede considerar todas las herramientas disponibles en `TOOLS`.
+3. Si `allowed_tools` contiene elementos, SCARA solo considera esas herramientas.
+4. Si `default_tool` está definida y existe dentro del conjunto permitido, se coloca en primera posición.
+5. Si `allow_other_tools = false`, SCARA solo intentará la `default_tool`.
+6. Si `allow_other_tools = false` y la `default_tool` no existe o no está permitida, SCARA no probará ninguna herramienta.
+
+### Comportamientos típicos
+
+#### Caso 1: SCARA con una sola herramienta fija
+
+```json
+"scara": {
+  "enabled": true,
+  "root_dir": "SCARA",
+  "default_tool": "tool_H04_pos0",
+  "allow_other_tools": false,
+  "allowed_tools": ["tool_H04_pos0"]
+}
+```
+
+Resultado:
+- SCARA solo probará `tool_H04_pos0`.
+
+#### Caso 2: SCARA con herramienta por defecto y alternativas limitadas
+
+```json
+"scara": {
+  "enabled": true,
+  "root_dir": "SCARA",
+  "default_tool": "tool_H04_pos0",
+  "allow_other_tools": true,
+  "allowed_tools": ["tool_H04_pos0", "tool_H04_pos1"]
+}
+```
+
+Resultado:
+- SCARA probará primero `tool_H04_pos0`.
+- Si hace falta, también probará `tool_H04_pos1`.
+- No probará ninguna otra herramienta fuera de esa lista.
+
+#### Caso 3: SCARA sin restricción explícita
+
+```json
+"scara": {
+  "enabled": true,
+  "root_dir": "SCARA",
+  "default_tool": "tool_A.json",
+  "allow_other_tools": true,
+  "allowed_tools": []
+}
+```
+
+Resultado:
+- SCARA probará primero `tool_A.json`.
+- Después podrá probar el resto de herramientas detectadas en `TOOLS`.
+  + si no, "allowed_tools":["tool_A.json", "tool_B.json"],
+      ...para elegir cuales puede probar.
+
+### Recomendación práctica
+
+Si en planta SCARA solo puede montar ciertos útiles, conviene definir siempre `allowed_tools` para evitar cálculos innecesarios y resultados que no sean físicamente utilizables en esa máquina.
+
+Esto permite:
+
+- reflejar la realidad del robot en producción,
+- reducir el número de combinaciones evaluadas por `compute_ref`,
+- mantener la prioridad de la herramienta montada por defecto,
+- y evitar que SCARA herede herramientas pensadas solo para ANTHRO.
+
 
 ### Descripciones
 

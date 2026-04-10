@@ -86,7 +86,13 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "enabled": True,
             "root_dir": "SCARA",
             "default_tool": "tool_H04_pos0",
-            "allow_other_tools": True,
+            "enabled": True,
+              "default_tool": "tool_A.json",
+              "allow_other_tools": False,
+              "allowed_tools": [
+                "tool_A.json",
+                "tool_B.json"
+              ],
             "filters": {
                 "max_bbox_x": 500.0,
                 "max_bbox_y": 500.0,
