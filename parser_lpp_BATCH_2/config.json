@@ -13,7 +13,7 @@
         ]
     },
   "compute_ref": {
-    "max_compute_time": 3,
+    "max_compute_time": 0.3,
     "enhance_opti": 1
   },
   "robots": {

@@ -1,63 +1,61 @@
-# parser_lpp_BATCH
 
-Pipeline para separar programas `.lpp`/`.cnc` en piezas individuales, generar sus salidas geométricas y evaluar cada pieza con todas las herramientas disponibles mediante `compute_ref.exe`.
+# SORTING-Study
 
-## Principal
+Pipeline para separar programas `.lpp` y `.cnc` en piezas individuales, clasificarlas por robot, generar sus salidas geométricas y evaluar cada pieza con herramientas compatibles mediante `compute_ref.exe`.
 
-`main.py` ejecuta dos fases seguidas:
+## Qué hace el proyecto
 
-1. fase de parsing y clasificación por robot
-   - renombra `.lpp` a `.cnc` dentro de `INPUT`
-   - lee cabecera del programa origen
+`main.py` ejecuta dos fases principales:
+
+1. Parsing y clasificación por robot
+   - renombra programas `.lpp` a `.cnc` dentro de `INPUT`
+   - lee la cabecera del programa origen
    - separa cada pieza en un `.cnc` individual
-   - reescribe la cabecera de cada pieza con metadata calculada
-   - clasifica cada pieza entre `SCARA` o `ANTHRO`
-   - si `robots.scara.enabled=false`, todas las piezas van a `ANTHRO`
-   - genera su `OUT_png` y `OUT_dxf` dentro de la carpeta del robot asignado
+   - recalcula y reescribe la cabecera `META` de cada pieza
+   - clasifica cada pieza hacia `SCARA` o `ANTHRO`
+   - si `robots.scara.enabled = false`, todas las piezas se asignan a `ANTHRO`
+   - genera salidas geométricas por pieza (`OUT_png` y `OUT_dxf`)
 
-2. fase de optimización pieza + herramienta
-   - recorre los `.cnc` generados en `ANTHRO/OUT_cnc` y `SCARA/OUT_cnc`
-   - selecciona herramientas por robot según `default_tool` y `allow_other_tools`
-   - genera una versión procesada de cada herramienta en `TOOLS/processed`
-   - construye un `ref_*.json` por pieza
-   - llama a `module_ai2/compute_ref.exe`
-   - guarda resultados por combinación dentro de `ANTHRO/OUT_solutions` o `SCARA/OUT_solutions`
-   - genera `metadata_parser.json` por combinación
-   - genera `summary.json` y `report/` por robot
-   - genera PNG de overlay cuando existe geometría real de solución
+2. Evaluación pieza + herramienta
+   - recorre las piezas generadas para cada robot
+   - selecciona herramientas según la configuración del robot
+   - genera versiones procesadas de herramientas en `TOOLS/processed`
+   - construye el `ref_*.json` de cada pieza
+   - ejecuta `module_ai2/compute_ref.exe`
+   - guarda resultados por combinación pieza + herramienta
+   - genera `metadata_parser.json`, `summary.json` y los informes por robot
+   - genera overlays PNG cuando existe geometría real de solución
 
-## FLUJO
+## Flujo general
 
 ```text
 INPUT/*.lpp|*.cnc
-   -> ANTHRO/OUT_cnc/*.cnc
-   -> ANTHRO/OUT_png/*.png
-   -> ANTHRO/OUT_dxf/*.dxf
-   -> ANTHRO/OUT_solutions/<pieza>/<herramienta>/
-
-INPUT/*.lpp|*.cnc
-   -> SCARA/OUT_cnc/*.cnc
-   -> SCARA/OUT_png/*.png
-   -> SCARA/OUT_dxf/*.dxf
-   -> SCARA/OUT_solutions/<pieza>/<herramienta>/
+   -> parsing por pieza
+   -> clasificación por robot
+   -> OUTPUT/<robot>/OUT_cnc/*.cnc
+   -> OUTPUT/<robot>/OUT_png/*.png
+   -> OUTPUT/<robot>/OUT_dxf/*.dxf
+   -> OUTPUT/<robot>/OUT_solutions/<pieza>/<herramienta>/
 ```
 
-## Estructura de carpetas
+## Estructura principal
 
 ```text
-parser_lpp_BATCH/
+SORTING-Study/
+├── docs/
 ├── INPUT/
 ├── config.json
-├── ANTHRO/
-│   ├── OUT_cnc/
-│   ├── OUT_dxf/
-│   ├── OUT_png/
-│   └── OUT_solutions/
-├── SCARA/
-│   ├── OUT_cnc/
-│   ├── OUT_dxf/
-│   ├── OUT_png/
-│   └── OUT_solutions/
+├── OUTPUT/
+│   ├── ANTHRO/
+│   │   ├── OUT_cnc/
+│   │   ├── OUT_dxf/
+│   │   ├── OUT_png/
+│   │   └── OUT_solutions/
+│   └── SCARA/
+│       ├── OUT_cnc/
+│       ├── OUT_dxf/
+│       ├── OUT_png/
+│       └── OUT_solutions/
 ├── OUT_ref_cache/
 ├── TOOLS/
 │   ├── *.json
@@ -66,36 +64,25 @@ parser_lpp_BATCH/
 │   ├── compute_ref.exe
 │   └── compute_tool.py
 ├── modules/
-└── main.py
+├── main.py
+└── README.md
 ```
+
 
 ## Requisitos
 
-- Python 3.10 o superior
-- `numpy`
-- `opencv-python`
-- `shapely`
+- matplotlib==3.10.3
+- numpy==2.2.6
+- openpyxl==3.1.5
+- opencv-python==4.12.0.88
+- scipy==1.16.2
+- shapely==2.1.1
 
 Instalación:
 
 ```bash
-pip install numpy opencv-python shapely
+pip install -r requirements.txt
 ```
-
-## Requisitos del solver
-
-`compute_ref.exe` es un binario de Windows.
-
-- en Windows se ejecuta directamente
-- en Linux o macOS necesitas `wine`
-
-Uso esperado del solver:
-
-```text
-compute_ref.exe <refFileJson> <toolFileJson> <materialFileJson> <maxComputeTime> <enhanceOpti>
-```
-
-Importante: `compute_ref.exe` no recibe el `.cnc` directamente. Recibe el `ref_*.json` generado por `main.py`.
 
 ## Ejecución
 
@@ -105,299 +92,86 @@ Desde la raíz del proyecto:
 python main.py
 ```
 
-## Configuración de herramientas por robot
+## Documentación relacionada
 
-La selección de herramientas se controla desde `config.json`, dentro del bloque `robots`.
-
-Ejemplo:
-
-```json
-{
-  "robots": {
-    "anthro": {
-      "root_dir": "ANTHRO",
-      "default_tool": "tool_A",
-      "allow_other_tools": true
-    },
-    "scara": {
-      "enabled": true,
-      "root_dir": "SCARA",
-      "default_tool": "tool_H04_pos0",
-      "allow_other_tools": true,
-      "allowed_tools": [
-        "tool_H04_pos0",
-        "tool_H04_pos1",
-        "tool_A"
-      ],
-      "filters": {
-        "max_bbox_x": 500.0,
-        "max_bbox_y": 500.0,
-        "max_weight_kg": 6.0,
-        "ferromagnetic": null,
-        "material_family_any": [],
-        "material_contains_any": []
-      }
-    }
-  }
-}
-```
-
-### Parámetros de selección
-
-#### `default_tool`
-Herramienta montada por defecto en el robot. Si existe en la carpeta `TOOLS`, se intentará usar primero.
-
-#### `allow_other_tools`
-Define si el robot puede probar herramientas adicionales aparte de la montada por defecto.
-
-- `true`: prueba primero la herramienta por defecto y después el resto de herramientas permitidas.
-- `false`: solo prueba la herramienta por defecto.
-
-#### `allowed_tools` (solo SCARA)
-Lista blanca de herramientas permitidas para SCARA.
-
-Si esta lista contiene elementos, SCARA solo podrá usar herramientas incluidas en ella.
-Los nombres pueden indicarse con o sin extensión `.json`, por ejemplo:
-
-```json
-"allowed_tools": ["tool_H04_pos0", "tool_H04_pos1", "tool_A"]
-```
-
-o bien:
-
-```json
-"allowed_tools": ["tool_H04_pos0.json", "tool_H04_pos1.json", "tool_A.json"]
-```
-
-La comparación se hace por nombre de fichero o por `stem`, así que ambas formas son válidas.
-
-### Precedencia de la configuración en SCARA
-
-La lógica de selección de herramientas para SCARA queda así:
-
-1. Si `enabled = false`, no se enrutan piezas a SCARA.
-2. Si `allowed_tools` está vacía o no existe, SCARA puede considerar todas las herramientas disponibles en `TOOLS`.
-3. Si `allowed_tools` contiene elementos, SCARA solo considera esas herramientas.
-4. Si `default_tool` está definida y existe dentro del conjunto permitido, se coloca en primera posición.
-5. Si `allow_other_tools = false`, SCARA solo intentará la `default_tool`.
-6. Si `allow_other_tools = false` y la `default_tool` no existe o no está permitida, SCARA no probará ninguna herramienta.
-
-### Comportamientos típicos
-
-#### Caso 1: SCARA con una sola herramienta fija
-
-```json
-"scara": {
-  "enabled": true,
-  "root_dir": "SCARA",
-  "default_tool": "tool_H04_pos0",
-  "allow_other_tools": false,
-  "allowed_tools": ["tool_H04_pos0"]
-}
-```
-
-Resultado:
-- SCARA solo probará `tool_H04_pos0`.
-
-#### Caso 2: SCARA con herramienta por defecto y alternativas limitadas
-
-```json
-"scara": {
-  "enabled": true,
-  "root_dir": "SCARA",
-  "default_tool": "tool_H04_pos0",
-  "allow_other_tools": true,
-  "allowed_tools": ["tool_H04_pos0", "tool_H04_pos1"]
-}
-```
-
-Resultado:
-- SCARA probará primero `tool_H04_pos0`.
-- Si hace falta, también probará `tool_H04_pos1`.
-- No probará ninguna otra herramienta fuera de esa lista.
-
-#### Caso 3: SCARA sin restricción explícita
-
-```json
-"scara": {
-  "enabled": true,
-  "root_dir": "SCARA",
-  "default_tool": "tool_A.json",
-  "allow_other_tools": true,
-  "allowed_tools": []
-}
-```
-
-Resultado:
-- SCARA probará primero `tool_A.json`.
-- Después podrá probar el resto de herramientas detectadas en `TOOLS`.
-  + si no, "allowed_tools":["tool_A.json", "tool_B.json"],
-      ...para elegir cuales puede probar.
-
-### Recomendación práctica
-
-Si en planta SCARA solo puede montar ciertos útiles, conviene definir siempre `allowed_tools` para evitar cálculos innecesarios y resultados que no sean físicamente utilizables en esa máquina.
-
-Esto permite:
-
-- reflejar la realidad del robot en producción,
-- reducir el número de combinaciones evaluadas por `compute_ref`,
-- mantener la prioridad de la herramienta montada por defecto,
-- y evitar que SCARA herede herramientas pensadas solo para ANTHRO.
-
-
-### Descripciones
-
-- `compute_ref.max_compute_time`
-  - tiempo máximo que se pasa a `compute_ref.exe` por combinación pieza + herramienta
-- `compute_ref.enhance_opti`
-  - quinto argumento del solver necesario.
-- `robots.anthro.root_dir`
-  - carpeta raíz de salidas del robot antropomórfico
-- `robots.anthro.default_tool`
-  - herramienta montada por defecto en ANTHRO; se puede escribir con o sin `.json`
-- `robots.anthro.allow_other_tools`
-  - si es `false`, ANTHRO solo prueba su herramienta por defecto
-- `robots.scara.enabled`
-  - si es `false`, SCARA queda deshabilitado y todas las piezas se envían a ANTHRO
-- `robots.scara.root_dir`
-  - carpeta raíz de salidas del robot SCARA
-- `robots.scara.default_tool`
-  - herramienta montada por defecto en SCARA; se puede escribir con o sin `.json`
-- `robots.scara.allow_other_tools`
-  - si es `false`, SCARA solo prueba su herramienta por defecto
-- `robots.scara.filters`
-  - filtros para decidir si una pieza va a `SCARA`; si no pasa, va a `ANTHRO`
-- `materials.known`
-  - catálogo de materiales conocidos
-- `materials.known.<FAMILIA>.aliases`
-  - tokens compatibles para reconocer el material real en los META
-
-Nota:
-Si en la cabecera de una pieza aparece `FE`, `material_profile()` no necesita lógica fija en código para entenderlo: lo resolverá con `config.json` como familia `STEEL`, densidad base `7.85 g/cm3` y `ferromagnetic=true`.
-
-
-### Selección de herramientas por robot
-
-- Si `allow_other_tools=true` y existe `default_tool`, esa herramienta se prueba primero y luego el resto.
-- Si `allow_other_tools=false`, el robot solo prueba `default_tool`.
-- Si `allow_other_tools=false` y `default_tool` no existe en `TOOLS/`, ese robot no ejecuta `compute_ref`.
-- La búsqueda de `default_tool` acepta nombre con o sin extensión `.json`.
-
-### Comportamiento recomendado de la configuración
-
-Esta combinación de parámetros define el comportamiento real de cada robot:
-
-- `robots.scara.enabled=false`
-  - SCARA queda deshabilitado y no recibe ninguna pieza.
-  - Todas las piezas se clasifican y se procesan con `ANTHRO`, aunque SCARA tenga `default_tool` definido en el config.
-
-- `robots.<robot>.default_tool`
-  - indica qué herramienta está montada por defecto en ese robot.
-  - el nombre debe corresponder con un JSON existente en `TOOLS/`, con o sin extensión `.json`.
-
-- `robots.<robot>.allow_other_tools=false`
-  - el robot trabaja únicamente con su herramienta montada por defecto.
-  - no intenta cambiar a otras herramientas ni probar alternativas.
-
-- `robots.<robot>.allow_other_tools=true`
-  - el robot intenta primero su herramienta por defecto.
-  - si esa no resuelve la pieza, puede probar el resto de herramientas disponibles.
-
-Ejemplo operativo con esta configuración:
-
-- `ANTHRO.default_tool = tool_H04_pos1`
-- `SCARA.default_tool = tool_A`
-
-Resultado:
-
-- si `SCARA.enabled=false`, todo se hará con `ANTHRO`, independientemente del `default_tool` configurado en SCARA.
-- si `SCARA.enabled=true`, cada pieza se enviará a SCARA o ANTHRO según los filtros de clasificación.
-- una vez asignada la pieza a un robot, ese robot empezará probando su `default_tool`.
-- si además `allow_other_tools=false`, el proceso queda restringido a esa única herramienta.
-
-### Orden de resolución del material
-
-1. Se lee `MATERIAL` desde la metadata real de la pieza.
-2. Se compara contra los alias definidos en `config.json`.
-3. Si hay match, se aplican sus propiedades.
-4. Si no hay match, se cae a un perfil genérico.
+- `docs/configuracion.md`
+- `docs/flujo_procesado.md`
+- `docs/cache_y_limpieza.md`
+- `docs/troubleshooting.md`
 
 ## Entradas
 
-### 1. Programas de corte
+### Programas de corte
 
-Coloca los archivos fuente en `INPUT/`.
+Coloca los archivos de corte en `INPUT/`.
 
-Se aceptan:
+Formatos admitidos:
 - `.lpp`
 - `.cnc`
 
-### 2. Herramientas
+### Herramientas
 
-Coloca las herramientas en `TOOLS/` como JSON.
+Coloca las herramientas en `TOOLS/` en formato JSON.
 
-El script admite varias variantes de estructura y las aplana antes de llamar a `compute_tool.py`.
+El pipeline admite distintas variantes de estructura y las normaliza.
 
-### 3. Configuración del solver, rutas y alias de material
+### Configuración
 
 Edita `config.json` para controlar:
-- tiempo máximo de compute
+- tiempo máximo de solver
 - parámetro `enhance_opti`
-- rutas de `SCARA` y `ANTHRO`
+- rutas de salida por robot
 - filtros de clasificación a SCARA
-- equivalencias de material
+- herramienta por defecto de cada robot
+- posibilidad de probar otras herramientas
+- materiales conocidos y alias
 
-### 4. Material del solver
+## Configuración de robots y herramientas
 
-No hace falta un `material.json` global.
+La lógica de selección de herramientas se controla en `config.json`, dentro de `robots`.
 
-Para cada pieza, `main.py` genera automáticamente un `material.json` temporal a partir de las líneas `META` de su `.cnc` separado, usando sobre todo:
+Resumen:
+- `default_tool` define la herramienta montada por defecto
+- `allow_other_tools` indica si el robot puede probar alternativas
+- `allowed_tools` limita explícitamente las herramientas permitidas en SCARA
+- `enabled=false` en SCARA desactiva por completo su participación en el pipeline
 
+Comportamiento práctico:
+- si `SCARA.enabled=false`, todas las piezas van a `ANTHRO`
+- si `allow_other_tools=false`, el robot solo prueba su `default_tool`
+- si `allow_other_tools=true`, prueba primero la herramienta por defecto y luego el resto permitido
+- si `allowed_tools` tiene elementos, SCARA solo puede usar esa lista
+
+--> Para el detalle completo de cada parámetro, ver `docs/configuracion.md`.
+
+## Materiales
+
+Para cada pieza, el pipeline genera un `material.json` temporal a partir de los `META` del `.cnc` separado, usando principalmente:
 - `MATERIAL`
 - `THICKNESS`
 - `DENSITY_G_CM3`
 - `FERROMAGNETIC`
 
-Ese JSON por pieza es el que se pasa a `compute_ref.exe`.
-
-Unidad de densidad:
-- en metadata y `config.json`: `g/cm3` (`DENSITY_G_CM3`)
-- en el `material.json` que se entrega a `compute_ref.exe`: `kg/mm3`
-- conversión aplicada por `main.py`: `Density = DENSITY_G_CM3 * 1e-6`
+No hace falta mantener un `material.json` global.
 
 ## Salidas
 
-### ANTHRO/OUT_cnc y SCARA/OUT_cnc
+### OUT_cnc
+Un `.cnc` por pieza, con cabecera `META` reescrita.
 
-Un `.cnc` por pieza. La cabecera de cada pieza se reescribe con líneas `META` como:
+### OUT_png
+PNG de contorno por pieza. Con información de dimensiones y peso unitario.
 
-```text
-( META SOURCE_FILE : archivo_origen.cnc )
-( META MATERIAL : INOX )
-( META THICKNESS : 10 )
-( META DENSITY_G_CM3 : 7.9 )
-( META FERROMAGNETIC : NO )
-( META BBOX_X : 123.456 )
-( META BBOX_Y : 78.9 )
-( META AREA_MM2 : 5432.1 )
-( META WEIGHT_KG : 0.4291 )
-```
-
-### ANTHRO/OUT_png y SCARA/OUT_png
-
-PNG de contorno por pieza.
-
-### ANTHRO/OUT_dxf y SCARA/OUT_dxf
-
+### OUT_dxf
 DXF por pieza.
 
-### ANTHRO/OUT_solutions y SCARA/OUT_solutions
+### OUT_solutions
+Resultados por combinación pieza + herramienta.
 
-Se crea una carpeta por combinación pieza + herramienta:
+Estructura de este directorio:
 
 ```text
-SCARA/OUT_solutions/
+OUTPUT/SCARA/OUT_solutions/
 └── ID11_W56240401/
     ├── material.json
     └── tool_17682099861849268/
@@ -408,23 +182,21 @@ SCARA/OUT_solutions/
         └── ID11_W56240401__tool_17682099861849268.png
 ```
 
-Además, cada robot tiene:
+Además, cada robot genera:
 
 ```text
-SCARA/OUT_solutions/
+OUTPUT/<robot>/OUT_solutions/
 ├── png/
 ├── summary.json
 └── report/
+    ├── tool_report.xlsx
+    ├── tool_report.md    
+    └── tool_report_summary.json
 ```
 
-Y lo mismo para `ANTHRO/OUT_solutions/`.
-
-## Qué guarda metadata_parser.json
-
-Cada combinación guarda metadata normalizada para poder compararla después.
+## Qué contiene metadata_parser.json
 
 Campos importantes:
-
 - `robot`
 - `piece_file`
 - `piece_id`
@@ -450,38 +222,41 @@ Campos importantes:
 - `time_limit_hit`
 - `solver_xmin`
 
-## Criterio de clasificación SCARA
+## Requisitos del solver
 
-La decisión la toma `modules/scara_router.py` usando la metadata calculada de la pieza y los filtros configurados en:
+`compute_ref.exe` es un binario de Windows.
 
-```json
-robots.scara.filters
-```
+- en Windows se ejecuta directamente
+- en Linux o macOS requiere `wine` o solicitar la compilación para Linux o macOS.
+
+## Criterio de clasificación hacia SCARA
+
+La decisión se toma a partir de la metadata calculada de la pieza y de `robots.scara.filters`.
 
 Filtros soportados:
+- `max_bbox_x`
+- `max_bbox_y`
+- `max_weight_kg`
+- `ferromagnetic`
+- `material_family_any`
+- `material_contains_any`
 
-```json
-{
-  "max_bbox_x": 500.0,
-  "max_bbox_y": 500.0,
-  "max_weight_kg": 6.0,
-  "ferromagnetic": null,
-  "material_family_any": ["STEEL", "STAINLESS"],
-  "material_contains_any": ["INOX", "S235"]
-}
-```
+Si la pieza pasa esos filtros, va a `SCARA`. Si no, va a `ANTHRO`.
 
-Si la pieza pasa esos filtros, va a `SCARA/`.
-Si no los pasa, va a `ANTHRO/`.
+## Qué revisar primero al validar un lote
 
-## Qué mirar primero al revisar resultados
+1. `OUTPUT/SCARA/OUT_solutions/summary.json`
+2. `OUTPUT/ANTHRO/OUT_solutions/summary.json`
+3. `OUTPUT/SCARA/OUT_solutions/report/`
+4. `OUTPUT/ANTHRO/OUT_solutions/report/`
+5. `OUTPUT/SCARA/OUT_solutions/png/`
+6. `OUTPUT/ANTHRO/OUT_solutions/png/`
 
-Para revisar resultados, empieza por:
+## Documentación relacionada
 
-- `SCARA/OUT_solutions/summary.json`
-- `ANTHRO/OUT_solutions/summary.json`
+- `docs/configuracion.md`
+- `docs/flujo_procesado.md`
+- `docs/cache_y_limpieza.md`
+- `docs/troubleshooting.md`
 
-Y luego por los informes:
-
-- `SCARA/OUT_solutions/report/`
-- `ANTHRO/OUT_solutions/report/`
+---

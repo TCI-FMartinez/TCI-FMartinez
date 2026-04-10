@@ -88,7 +88,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "default_tool": "tool_H04_pos0",
             "enabled": True,
               "default_tool": "tool_A.json",
-              "allow_other_tools": False,
+              "allow_other_tools": True,
               "allowed_tools": [
                 "tool_A.json",
                 "tool_B.json"
@@ -212,6 +212,11 @@ def get_robot_runtime_settings() -> dict[str, Any]:
         "anthro_allow_other_tools": bool(anthro_cfg.get("allow_other_tools", True)),
         "scara_default_tool": str(scara_cfg.get("default_tool") or "").strip(),
         "scara_allow_other_tools": bool(scara_cfg.get("allow_other_tools", True)),
+        "scara_allowed_tools": [
+            str(name).strip()
+            for name in (scara_cfg.get("allowed_tools") or [])
+            if str(name).strip()
+        ] if isinstance(scara_cfg.get("allowed_tools"), list) else [],
     }
 
 def change_extension(directory: str = "INPUT") -> int:
@@ -528,15 +533,15 @@ def _normalize_tool_reference(tool_name: str | None) -> str:
 
 
 
-def _resolve_default_tool_name(tools_dir: str, default_tool: str | None) -> str | None:
-    """Busca la herramienta por defecto por nombre exacto o por stem, con o sin .json."""
-    normalized_target = _normalize_tool_reference(default_tool)
+def _resolve_tool_name(tools_dir: str, tool_name: str | None) -> str | None:
+    """Busca una herramienta por nombre exacto o por stem, con o sin .json."""
+    normalized_target = _normalize_tool_reference(tool_name)
     if not normalized_target:
         return None
 
     tool_names = _tool_candidates(tools_dir)
     for name in tool_names:
-        if name.casefold() == str(default_tool).strip().casefold():
+        if name.casefold() == str(tool_name).strip().casefold():
             return name
     for name in tool_names:
         if Path(name).stem.casefold() == normalized_target:
@@ -545,25 +550,60 @@ def _resolve_default_tool_name(tools_dir: str, default_tool: str | None) -> str 
 
 
 
+def _resolve_default_tool_name(tools_dir: str, default_tool: str | None) -> str | None:
+    """Busca la herramienta por defecto por nombre exacto o por stem, con o sin .json."""
+    return _resolve_tool_name(tools_dir, default_tool)
+
+
+
 def _select_tool_names_for_robot(
     tools_dir: str,
     *,
     default_tool: str | None,
     allow_other_tools: bool,
+    allowed_tools: list[str] | None = None,
 ) -> tuple[list[str], str | None]:
-    """Devuelve la lista ordenada de herramientas a probar para un robot."""
+    """Devuelve la lista ordenada de herramientas a probar para un robot.
+
+    Regla importante:
+    - Si hay allowed_tools, el procesamiento se limita a esa lista
+      (solo a las herramientas que existan realmente en TOOLS).
+    - allow_other_tools solo aplica cuando no hay whitelist.
+    - default_tool, si está disponible dentro del conjunto final, se prueba primero.
+    """
     tool_names = _tool_candidates(tools_dir)
     if not tool_names:
         return [], None
 
+    whitelist_active = isinstance(allowed_tools, list) and bool(allowed_tools)
+    allowed_pool = tool_names
+    if whitelist_active:
+        resolved_allowed: list[str] = []
+        for raw_name in allowed_tools:
+            resolved_name = _resolve_tool_name(tools_dir, raw_name)
+            if resolved_name and resolved_name not in resolved_allowed:
+                resolved_allowed.append(resolved_name)
+        allowed_pool = resolved_allowed
+
+    if not allowed_pool:
+        return [], None
+
     resolved_default = _resolve_default_tool_name(tools_dir, default_tool)
+    if resolved_default and resolved_default not in allowed_pool:
+        resolved_default = None
+
+    if resolved_default:
+        ordered = [resolved_default, *[name for name in allowed_pool if name != resolved_default]]
+    else:
+        ordered = allowed_pool
+
+    if whitelist_active:
+        return ordered, resolved_default
+
     if not allow_other_tools:
         return ([resolved_default] if resolved_default else []), resolved_default
 
-    if resolved_default:
-        remaining = [name for name in tool_names if name != resolved_default]
-        return [resolved_default, *remaining], resolved_default
-    return tool_names, None
+    return ordered, resolved_default
 
 
 def process_robot_out_cnc_with_tools(
@@ -577,6 +617,7 @@ def process_robot_out_cnc_with_tools(
     *,
     default_tool: str | None = None,
     allow_other_tools: bool = True,
+    allowed_tools: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Ejecuta compute_ref.exe para un directorio CNC concreto de un robot."""
     cnc_files = [os.path.join(cnc_dir, name) for name in files_finder(cnc_dir, extensions=(".cnc",))]
@@ -591,9 +632,15 @@ def process_robot_out_cnc_with_tools(
         tools_dir,
         default_tool=default_tool,
         allow_other_tools=allow_other_tools,
+        allowed_tools=allowed_tools,
     )
     if not tool_names:
-        if default_tool and not allow_other_tools:
+        if allowed_tools:
+            mss = (
+                f"{robot_label}: ninguna herramienta de allowed_tools está disponible en '{tools_dir}'. "
+                f"Lista configurada: {allowed_tools}"
+            )
+        elif default_tool and not allow_other_tools:
             mss = (
                 f"{robot_label}: no se encontró la herramienta por defecto '{default_tool}' en '{tools_dir}'. "
                 "Se omite este robot porque no puede probar otras herramientas."
@@ -612,8 +659,13 @@ def process_robot_out_cnc_with_tools(
     os.makedirs(png_dir, exist_ok=True)
 
     print(f"Procesando {len(cnc_files)} CNC(s) de {robot_label} con {len(tool_names)} herramienta(s) usando compute_ref.exe...")
+    if allowed_tools:
+        mss = (f"  Lista permitida de {robot_label} aplicada: {tool_names}")
+        if DEBUG_LEVEL >= 2:
+            LogThis("ROUTING", "OUT", mss, "")
+        print(mss)
     if resolved_default_tool:
-        modo = "solo por defecto" if not allow_other_tools else "por defecto primero"
+        modo = "whitelist con prioridad" if allowed_tools else ("solo por defecto" if not allow_other_tools else "por defecto primero")
         mss = (f"  Herramienta por defecto de {robot_label}: {resolved_default_tool} ({modo})")
         if DEBUG_LEVEL >= 2:
             LogThis("ROUTING", "OUT", mss, "")
@@ -1934,6 +1986,7 @@ def process_out_cnc_with_tools(
             os.path.join(anthro_root, solutions_dir),
             robot_settings.get("anthro_default_tool"),
             robot_settings.get("anthro_allow_other_tools", True),
+            [],
         ),
         (
             "SCARA",
@@ -1941,11 +1994,12 @@ def process_out_cnc_with_tools(
             os.path.join(scara_root, solutions_dir),
             robot_settings.get("scara_default_tool"),
             robot_settings.get("scara_allow_other_tools", True),
+            robot_settings.get("scara_allowed_tools", []),
         ),
     ]
 
     any_processed = False
-    for robot_label, robot_cnc_dir, robot_solutions_dir, default_tool, allow_other_tools in robot_jobs:
+    for robot_label, robot_cnc_dir, robot_solutions_dir, default_tool, allow_other_tools, allowed_tools in robot_jobs:
         if not os.path.isdir(robot_cnc_dir) or not files_finder(robot_cnc_dir, extensions=(".cnc",)):
             print(f"No se encontraron CNCs para {robot_label} en '{robot_cnc_dir}'")
             continue
@@ -1960,6 +2014,7 @@ def process_out_cnc_with_tools(
             solutions_dir=robot_solutions_dir,
             default_tool=default_tool,
             allow_other_tools=allow_other_tools,
+            allowed_tools=allowed_tools,
         )
 
     if not any_processed:
