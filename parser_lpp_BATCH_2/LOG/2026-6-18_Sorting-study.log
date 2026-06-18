@@ -26,3 +26,15 @@
 18-6-2026 10:51:39 INF [TOOL_REPORTING] = Informe de estadísticas para ANTHRO --> JSON generado correctamente 
 18-6-2026 10:51:39 INF [TOOL_REPORTING] = Informe de estadísticas para SCARA --> EXCEL generado correctamente 
 18-6-2026 10:51:39 INF [TOOL_REPORTING] = Informe de estadísticas para SCARA --> JSON generado correctamente 
+18-6-2026 11:7:43  [===================== INICIO ===========================] =  
+18-6-2026 11:7:43 INF [INPUT_PROCESSING] = 7 archivos .cnc encontrados en INPUT 
+18-6-2026 11:7:43 INF [INPUT_PROCESSING] =     2 piezas generadas 
+18-6-2026 11:7:43 INF [INPUT_PROCESSING] =     10 piezas generadas 
+18-6-2026 11:7:44 INF [INPUT_PROCESSING] =     24 piezas generadas 
+18-6-2026 11:7:44 INF [INPUT_PROCESSING] =     8 piezas generadas 
+18-6-2026 11:7:45 INF [INPUT_PROCESSING] =     8 piezas generadas 
+18-6-2026 11:7:45 INF [INPUT_PROCESSING] =     1 piezas generadas 
+18-6-2026 11:7:45 INF [INPUT_PROCESSING] =     3 piezas generadas 
+18-6-2026 11:12:50 INF [INPUT_PROCESSING] = --> Generando informe global en OUTPUT 
+18-6-2026 11:12:50 INF [TOOL_REPORTING] = Informe global --> EXCEL generado correctamente en OUTPUT/tool_report.xlsx 
+18-6-2026 11:12:50 INF [TOOL_REPORTING] = Informe global --> JSONL generado correctamente en OUTPUT/tool_report.jsonl 

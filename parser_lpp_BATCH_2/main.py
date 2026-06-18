@@ -2045,6 +2045,7 @@ def main() -> None:
             LogThis("RUNTIME_CLEANUP INITIAL", "INF", "Iniciando limpieza de directorios temporales...", "")
 
         ensure_clean_dir(str(PARSED_PARTS_TMP_DIR))
+        os.makedirs("OUTPUT", exist_ok=True)
         robot_settings = get_robot_runtime_settings()
         anthro_root = robot_settings["anthro_root"]
         scara_root = robot_settings["scara_root"]
@@ -2112,49 +2113,58 @@ def main() -> None:
 
         print("\n")
         print("=" * 70)
-        mss = ("--> Generando informes de estadísticas por robot")
+        mss = ("--> Generando informe global en OUTPUT")
         print(mss)
         if DEBUG_LEVEL >= 1:
             LogThis("INPUT_PROCESSING", "INF", mss, "")
+
+        summary_inputs = []
         for robot_label, robot_root in (("ANTHRO", anthro_root), ("SCARA", scara_root)):
             summary_path = os.path.join(robot_root, "OUT_solutions", "summary.json")
             if os.path.exists(summary_path):
-                try:
-                    mss = (f"Generando informe para {robot_label}: {summary_path}")
-                    print(mss)
-                    if DEBUG_LEVEL >= 2:
-                        LogThis("TOOL_REPORTING", "INF", mss, "")
-                    e01, e02 = generate_tool_report_files(summary_path, output_dir=os.path.join(robot_root, "OUT_solutions", "report"))
-                    if e01 is not None:
-                        print(e01)
-                        if DEBUG_LEVEL >= 1:
-                            LogThis("TOOL_REPORTING", "ERR", f"Error {robot_label}: {e01}", "")
-                    else:
-                        mss1 = (f"Informe de estadísticas para {robot_label} --> EXCEL generado correctamente")
-                        print("\n" + mss1)
-                        if DEBUG_LEVEL >= 1:
-                            LogThis("TOOL_REPORTING", "INF", mss1, "")
-
-                    if e02 is not None:
-                        print(e02)
-                        if DEBUG_LEVEL >= 1:
-                            LogThis("TOOL_REPORTING", "ERR", f"Error {robot_label}: {e02}", "")
-                    else:
-                        mss2 = (f"Informe de estadísticas para {robot_label} --> JSON generado correctamente")
-                        print("\n" + mss2)
-                        if DEBUG_LEVEL >= 1:
-                            LogThis("TOOL_REPORTING", "INF", mss2, "")
-                    
-                except Exception as exc:
-                    mss = (f"Error generando informe de estadísticas para {robot_label}: {exc}")
-                    print(mss)
-                    if DEBUG_LEVEL >= 1:
-                        LogThis("INPUT_PROCESSING", "INF", mss, "")
+                summary_inputs.append(summary_path)
+                mss = (f"Resumen detectado para {robot_label}: {summary_path}")
+                print(mss)
+                if DEBUG_LEVEL >= 2:
+                    LogThis("TOOL_REPORTING", "INF", mss, "")
             else:
-                mss = (f"No se encontró '{summary_path}' para generar el informe de estadísticas de {robot_label}.")
+                mss = (f"No se encontró '{summary_path}' para agregarlo al informe global.")
                 print(mss)
                 if DEBUG_LEVEL >= 1:
                     LogThis("INPUT_PROCESSING", "INF", mss, "")
+
+        if summary_inputs:
+            try:
+                e01, e02 = generate_tool_report_files(summary_inputs, output_dir="OUTPUT", base_name="tool_report")
+                if e01 is not None:
+                    print(e01)
+                    if DEBUG_LEVEL >= 1:
+                        LogThis("TOOL_REPORTING", "ERR", e01, "")
+                else:
+                    mss1 = ("Informe global --> EXCEL generado correctamente en OUTPUT/tool_report.xlsx")
+                    print("\n" + mss1)
+                    if DEBUG_LEVEL >= 1:
+                        LogThis("TOOL_REPORTING", "INF", mss1, "")
+
+                if e02 is not None:
+                    print(e02)
+                    if DEBUG_LEVEL >= 1:
+                        LogThis("TOOL_REPORTING", "ERR", e02, "")
+                else:
+                    mss2 = ("Informe global --> JSONL generado correctamente en OUTPUT/tool_report.jsonl")
+                    print("\n" + mss2)
+                    if DEBUG_LEVEL >= 1:
+                        LogThis("TOOL_REPORTING", "INF", mss2, "")
+            except Exception as exc:
+                mss = (f"Error generando informe global de estadísticas: {exc}")
+                print(mss)
+                if DEBUG_LEVEL >= 1:
+                    LogThis("INPUT_PROCESSING", "ERR", mss, "")
+        else:
+            mss = ("No hay summary.json disponibles para construir el informe global en OUTPUT.")
+            print(mss)
+            if DEBUG_LEVEL >= 1:
+                LogThis("INPUT_PROCESSING", "INF", mss, "")
 
         ensure_clean_dir(str(PARSED_PARTS_TMP_DIR))
 

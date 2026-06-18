@@ -3,7 +3,9 @@ import argparse
 import json
 import os
 from collections import Counter, defaultdict
+from pathlib import Path
 from statistics import mean
+from typing import Any
 
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
@@ -26,19 +28,43 @@ def fmt_num(value, digits=2):
     return f"{value:.{digits}f}"
 
 
-def load_rows(path):
+def _infer_robot_group(row: dict[str, Any]) -> str:
+    robot = str(row.get("robot") or "").strip().upper()
+    if robot in {"SCARA", "ANTHRO"}:
+        return robot
+    piece_file = str(row.get("piece_file", "")).replace("\\", "/")
+    if "/SCARA/" in f"/{piece_file}" or piece_file.startswith("SCARA/"):
+        return "SCARA"
+    if "/ANTHRO/" in f"/{piece_file}" or piece_file.startswith("ANTHRO/"):
+        return "ANTHRO"
+    return "UNKNOWN"
+
+
+def _normalize_row(row: dict[str, Any]) -> dict[str, Any]:
+    tool_file = row.get("tool_file", "")
+    tool_name = os.path.basename(str(tool_file))
+    tool_name = tool_name.replace("_with_polygons.json", "").replace(".json", "")
+    row["tool_name"] = tool_name or "unknown_tool"
+    row["robot_group"] = _infer_robot_group(row)
+    return row
+
+
+def load_rows(path: str | os.PathLike[str]):
     with open(path, "r", encoding="utf-8") as f:
         rows = json.load(f)
     if not isinstance(rows, list):
         raise ValueError("El JSON de entrada debe ser una lista de resultados")
+    return [_normalize_row(dict(row)) for row in rows if isinstance(row, dict)]
 
-    for row in rows:
-        tool_file = row.get("tool_file", "")
-        tool_name = os.path.basename(tool_file)
-        tool_name = tool_name.replace("_with_polygons.json", "").replace(".json", "")
-        row["tool_name"] = tool_name or "unknown_tool"
-        row["robot_group"] = "SCARA" if str(row.get("piece_file", "")).startswith("SCARA/") else "ANTHRO"
-    return rows
+
+def load_rows_from_inputs(inputs):
+    if isinstance(inputs, (str, os.PathLike)):
+        return load_rows(inputs)
+
+    merged = []
+    for item in inputs or []:
+        merged.extend(load_rows(item))
+    return merged
 
 
 def group_by_piece(rows):
@@ -166,7 +192,7 @@ def derive_recommendations(rows, tool_stats, piece_stats):
     replacement_patterns = Counter()
     for piece in piece_stats:
         if piece["has_any_valid"] and piece["invalid_tools"]:
-            replacement_patterns[(tuple(sorted(piece["invalid_tools"])), tuple(sorted(piece["valid_tools"])))] += 1
+            replacement_patterns[(tuple(sorted(piece["invalid_tools"])), tuple(sorted(piece["valid_tools"]))) ] += 1
     if replacement_patterns:
         (invalid_tools, valid_tools), count = replacement_patterns.most_common(1)[0]
         recs.append(
@@ -176,60 +202,10 @@ def derive_recommendations(rows, tool_stats, piece_stats):
     return recs
 
 
-def build_markdown(overview, tool_stats, piece_stats, recommendations):
-    lines = []
-    lines.append("# Informe de resultados de herramientas")
-    lines.append("")
-    lines.append("## Resumen general")
-    lines.append("")
-    lines.append(f"- Combinaciones evaluadas: {overview['total_rows']}")
-    lines.append(f"- Piezas únicas: {overview['total_pieces']}")
-    lines.append(f"- Herramientas evaluadas: {', '.join(overview['tools'])}")
-    lines.append(f"- Soluciones válidas: {overview['valid_rows']} ({overview['valid_rate']:.2f}%)")
-    lines.append(f"- Soluciones no válidas: {overview['invalid_rows']} ({pct(overview['invalid_rows'], overview['total_rows']):.2f}%)")
-    lines.append("")
-    lines.append("### Estados")
-    lines.append("")
-    for status, count in sorted(overview["status_counts"].items()):
-        lines.append(f"- {status}: {count}")
-    lines.append("")
-    lines.append("## Rendimiento por herramienta")
-    lines.append("")
-    lines.append("| Herramienta | Intentos | Válidas | No válidas | Éxito % | Activos medios válidos | Activos medios no válidos |")
-    lines.append("|---|---:|---:|---:|---:|---:|---:|")
-    for tool, stats in sorted(tool_stats.items(), key=lambda x: (-x[1]["success_rate"], x[0])):
-        lines.append(
-            f"| {tool} | {stats['attempts']} | {stats['valid']} | {stats['invalid']} | {stats['success_rate']:.2f} | {fmt_num(stats['avg_active_valid'])} | {fmt_num(stats['avg_active_invalid'])} |"
-        )
-    lines.append("")
-
-    lines.append("## Estado por pieza")
-    lines.append("")
-    lines.append("| Pieza | Grupo | Herramientas válidas | Herramientas no válidas | Mejor herramienta válida |")
-    lines.append("|---|---|---|---|---|")
-    for piece in piece_stats:
-        lines.append(
-            f"| {piece['piece_reference']} | {piece['robot_group']} | {', '.join(piece['valid_tools']) if piece['valid_tools'] else '-'} | {', '.join(piece['invalid_tools']) if piece['invalid_tools'] else '-'} | {piece['best_valid_tool'] or '-'} |"
-        )
-    lines.append("")
-
-    lines.append("## Recomendaciones")
-    lines.append("")
-    for rec in recommendations:
-        lines.append(f"- {rec}")
-    lines.append("")
-
-    only_one_valid = [p for p in piece_stats if p['valid_count'] == 1]
-    if only_one_valid:
-        lines.append("## Piezas con una única herramienta válida")
-        lines.append("")
-        for piece in only_one_valid:
-            lines.append(
-                f"- {piece['piece_reference']}: válida {piece['best_valid_tool']}; fallan {', '.join(piece['invalid_tools'])}"
-            )
-        lines.append("")
-
-    return "\n".join(lines)
+def write_jsonl_rows(path, rows):
+    with open(path, "w", encoding="utf-8") as f:
+        for row in rows:
+            f.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
 def write_json_summary(path, overview, tool_stats, piece_stats, recommendations):
@@ -301,7 +277,6 @@ def write_report_workbook(path, overview, tool_stats, piece_stats, recommendatio
     overview_rows.extend([[f"status::{status}", count] for status, count in sorted(overview["status_counts"].items())])
     overview_rows.extend([[f"robot::{robot}", count] for robot, count in sorted(overview["robot_group_counts"].items())])
     _write_sheet_rows(ws_overview, ["metric", "value"], overview_rows)
-    ws_overview["B7"].number_format = "0.0%"
     for cell in ws_overview["B"]:
         if cell.row == 1:
             continue
@@ -329,8 +304,8 @@ def write_report_workbook(path, overview, tool_stats, piece_stats, recommendatio
         ["tool_name", "attempts", "valid", "invalid", "success_rate", "avg_active_valid", "avg_active_invalid", "avg_fxmin_valid", "avg_fxmin_invalid", "status_counts", "robot_group_counts"],
         tool_rows,
     )
-    for row in range(2, ws_tools.max_row + 1):
-        ws_tools.cell(row, 5).number_format = "0.0%"
+    for row_idx in range(2, ws_tools.max_row + 1):
+        ws_tools.cell(row_idx, 5).number_format = "0.0%"
 
     ws_pieces = wb.create_sheet("Piezas")
     piece_rows = []
@@ -359,8 +334,8 @@ def write_report_workbook(path, overview, tool_stats, piece_stats, recommendatio
     rec_rows = [[idx, rec] for idx, rec in enumerate(recommendations, start=1)]
     _write_sheet_rows(ws_recs, ["orden", "recomendacion"], rec_rows)
     ws_recs.column_dimensions["B"].width = 120
-    for row in range(2, ws_recs.max_row + 1):
-        ws_recs.cell(row, 2).alignment = Alignment(wrap_text=True, vertical="top")
+    for row_idx in range(2, ws_recs.max_row + 1):
+        ws_recs.cell(row_idx, 2).alignment = Alignment(wrap_text=True, vertical="top")
 
     ws_raw = wb.create_sheet("Raw")
     raw_headers = [
@@ -396,37 +371,34 @@ def write_report_workbook(path, overview, tool_stats, piece_stats, recommendatio
     wb.save(path)
 
 
-def generate_tool_report_files(input_json="summary.json", output_dir="report_out", base_name="tool_report"):
-    e01 = e02 = None
+def generate_tool_report_files(input_json="summary.json", output_dir="OUTPUT", base_name="tool_report"):
     mess1 = mess2 = None
-    rows = load_rows(input_json)
+    rows = load_rows_from_inputs(input_json)
     overview, tool_stats, piece_stats = build_stats(rows)
     recommendations = derive_recommendations(rows, tool_stats, piece_stats)
 
     os.makedirs(output_dir, exist_ok=True)
-    md_path = os.path.join(output_dir, f"{base_name}.md")
     xlsx_path = os.path.join(output_dir, f"{base_name}.xlsx")
-    json_path = os.path.join(output_dir, f"{base_name}_summary.json")
+    jsonl_path = os.path.join(output_dir, f"{base_name}.jsonl")
+    summary_json_path = os.path.join(output_dir, f"{base_name}_summary.json")
 
-    markdown = build_markdown(overview, tool_stats, piece_stats, recommendations)
-    with open(md_path, "w", encoding="utf-8") as f:
-        f.write(markdown)
     try:
         write_report_workbook(xlsx_path, overview, tool_stats, piece_stats, recommendations, rows)
-    except Exception as e01:
-        mess1= (f"Error al generar el informe Excel: {e01}")
+    except Exception as exc:
+        mess1 = f"Error al generar el informe Excel: {exc}"
     try:
-        write_json_summary(json_path, overview, tool_stats, piece_stats, recommendations)
-    except Exception as e02:
-        mess2 = (f"Error al generar el resumen JSON: {e02}")
+        write_jsonl_rows(jsonl_path, rows)
+        write_json_summary(summary_json_path, overview, tool_stats, piece_stats, recommendations)
+    except Exception as exc:
+        mess2 = f"Error al generar el informe JSONL: {exc}"
 
     return mess1, mess2
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Genera un informe a partir de summary.json")
-    parser.add_argument("input_json", nargs="?", default="summary.json", help="Ruta al summary.json")
-    parser.add_argument("--output-dir", default="report_out", help="Carpeta de salida")
+    parser = argparse.ArgumentParser(description="Genera un informe a partir de uno o varios summary.json")
+    parser.add_argument("input_json", nargs="+", help="Ruta(s) al summary.json")
+    parser.add_argument("--output-dir", default="OUTPUT", help="Carpeta de salida")
     parser.add_argument("--base-name", default="tool_report", help="Prefijo de los archivos de salida")
     args = parser.parse_args()
     generate_tool_report_files(args.input_json, args.output_dir, args.base_name)
