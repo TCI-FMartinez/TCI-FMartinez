@@ -13,7 +13,7 @@
         ]
     },
   "compute_ref": {
-    "max_compute_time": 0.3,
+    "max_compute_time": 1.0,
     "enhance_opti": 1
   },
   "robots": {
@@ -25,9 +25,9 @@
     "scara": {
       "root_dir": "OUTPUT/SCARA",
       "filters": {
-        "max_bbox_x": 500.0,
-        "max_bbox_y": 500.0,
-        "max_weight_kg": 6.0,
+        "max_bbox_x": 550.0,
+        "max_bbox_y": 550.0,
+        "max_weight_kg": 8.0,
         "ferromagnetic": null,
         "material_family_any": [],
         "material_contains_any": []

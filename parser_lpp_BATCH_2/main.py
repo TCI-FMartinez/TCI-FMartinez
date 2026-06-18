@@ -94,9 +94,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
                 "tool_B.json"
               ],
             "filters": {
-                "max_bbox_x": 500.0,
-                "max_bbox_y": 500.0,
-                "max_weight_kg": 6.0,
+                "max_bbox_x": 550.0,
+                "max_bbox_y": 550.0,
+                "max_weight_kg": 8.0,
                 "ferromagnetic": None,
                 "material_family_any": [],
                 "material_contains_any": [],

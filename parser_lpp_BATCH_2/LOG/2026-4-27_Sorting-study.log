@@ -1,0 +1,13 @@
+27-4-2026 11:28:8  [===================== INICIO ===========================] =  
+27-4-2026 11:28:8 INF [INPUT_PROCESSING] = 6 archivos .cnc encontrados en INPUT 
+27-4-2026 11:28:8 INF [INPUT_PROCESSING] =     16 piezas generadas 
+27-4-2026 11:28:9 INF [INPUT_PROCESSING] =     1 piezas generadas 
+27-4-2026 11:28:11 INF [INPUT_PROCESSING] =     2 piezas generadas 
+27-4-2026 11:28:11 INF [INPUT_PROCESSING] =     12 piezas generadas 
+27-4-2026 11:28:11 INF [INPUT_PROCESSING] =     10 piezas generadas 
+27-4-2026 11:28:12 INF [INPUT_PROCESSING] =     4 piezas generadas 
+27-4-2026 11:34:6 INF [INPUT_PROCESSING] = --> Generando informes de estadísticas por robot 
+27-4-2026 11:34:6 INF [TOOL_REPORTING] = Informe de estadísticas para ANTHRO --> EXCEL generado correctamente 
+27-4-2026 11:34:6 INF [TOOL_REPORTING] = Informe de estadísticas para ANTHRO --> JSON generado correctamente 
+27-4-2026 11:34:6 INF [TOOL_REPORTING] = Informe de estadísticas para SCARA --> EXCEL generado correctamente 
+27-4-2026 11:34:6 INF [TOOL_REPORTING] = Informe de estadísticas para SCARA --> JSON generado correctamente 
