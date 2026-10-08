@@ -1,122 +1,97 @@
 =============================================
-            PARAMETROS A EXCEL -------->>
+PARAM_EDITOR v2.0
 =============================================
 
-¿QUÉ HACE ESTA APLICACIÓN?
-----------------------------
-1. Busca archivos de parámetros de corte contenidos en "factory" en la carpeta "para_procesar".
-2. Genera archivos de Excel (parametros.excel) en cada directorio encontrado.
-3. Edita a mano luego estos EXCEL para editar los valores.
-4.-Ejecuta la aplicación EXCELtoPARAM.exe para volver a generar archivos a partir del Excel que as editado.
+OBJETIVO
+--------
+Editar en Excel lotes de parámetros contenidos en carpetas llamadas "factory" y reconstruirlos sin alterar información que el usuario no haya modificado.
 
+La aplicación trabaja únicamente dentro de la carpeta local "para_procesar".
 
-📂 ESTRUCTURA DE CARPETAS
--------------------------
-Coloca tus archivos de parametros aquí:
-└── 📁 para_procesar/
-    └──📁 12kW PROCUTTER/
-        └──📁 factory/
-            └── 📄 parametros
+FLUJO
+-----
+1. Copia una o varias familias de parámetros dentro de:
 
-Los resultados se guardarán aquí:
-└── 📁 parametros_exportados/
+   para_procesar/
 
+   Se admiten, entre otras, estas dos estructuras:
 
-⚙️ PASOS PARA USARLA
---------------------
-1. **Prepara tu parametros**: 
-   - Asegúrate de tener lineas como: 
-     N001, N004, N005, N037 (ej: "Espesor", "Tipo de gas").
-   
-2. **Ejecuta la aplicación**:
-   - Doble clic en "PARAMtoEXCEL.exe".
-   - *O desde la terminal*: 
-     ```bash
-     EXCELtoPARAM.exe
-     ```
+   para_procesar/MAQUINA/factory/MATERIAL/...
+   para_procesar/MAQUINA/PARAMS_LASER/factory/MATERIAL/...
 
-3. **Resultados**:
-   - Encuentra tus archivos parametros.xlsx en la cada carpeta de parámetros "factory".
+2. Ejecuta PARAMtoEXCEL.exe (o "python main.py").
 
+3. Se genera un "parametros.xlsx" dentro de cada carpeta factory encontrada.
 
+4. Edita únicamente los valores de parámetros Nxxx que necesites.
 
-=============================================
-  <<-------- EXCEL A PARAMETROS
-=============================================
+5. Ejecuta EXCELtoPARAM.exe (o "python excel_to_param.py").
 
-¿QUÉ HACE ESTA APLICACIÓN?
-----------------------------
-1. Busca archivos Excel llamados "parametros.xlsx" en la carpeta "para_procesar".
-2. Genera archivos de texto (.lparam) con los datos procesados.
-3. Normaliza automáticamente los nombres de materiales (ej: "galvanizado" → "GALVA").
+6. Los resultados se generan en:
 
+   parametros_exportados/
 
-📂 ESTRUCTURA DE CARPETAS
--------------------------
-Coloca tus archivos Excel aquí:
-└── 📁 para_procesar/
-    └──📁 12kW PROCUTTER/
-        └──📁 factory/
-            └── 📄 parametros.xlsx
+   manteniendo la jerarquía de máquina / factory / material.
 
-Los resultados se guardarán aquí:
-└── 📁 parametros_exportados/
+SEGURIDAD DEL ROUND-TRIP
+------------------------
+- El Excel contiene una hoja interna oculta (_SOURCE) con la fuente original.
+- Si no se modifica ninguna celda, el contenido del parámetro reconstruido es byte a byte igual al original.
+- Se conserva el carácter R/S real de cada línea original.
+- Se conserva el orden de líneas, comentarios, líneas no reconocidas, decimales y saltos de línea.
+- Los parámetros repetidos aparecen como Nxxx, Nxxx#2, Nxxx#3, etc.
+- Una celda vacía de un parámetro que no existía no crea una línea nueva.
+- Una celda existente que se vacía genera deliberadamente NxxxR/S sin valor.
 
+COLUMNAS DE CONTROL
+-------------------
+N000               Ruta relativa de factory. No modificar.
+__subcarpeta        Material/subcarpeta original. No modificar.
+__archivo_origen    Nombre original. No modificar.
+__archivo_salida    Nombre del .lparam de salida. Puede modificarse.
+__id                Identificador interno oculto. No modificar.
 
-⚙️ PASOS PARA USARLA
---------------------
-1. **Prepara tu Excel**: 
-   - Asegúrate de tener columnas como: 
-     N000, N001, N004, N005, N037 (ej: "Espesor", "Tipo de gas").
-   
-2. **Ejecuta la aplicación**:
-   - Doble clic en "EXCELtoPARAM.exe".
-   - *O desde la terminal*: 
-     ```bash
-     EXCELtoPARAM.exe
-     ```
+La modificación de campos de control distintos de __archivo_salida aborta la exportación.
 
-3. **Resultados**:
-   - Encuentra tus archivos .lparam en la carpeta "parametros_exportados".
+COLISIONES
+----------
+Antes de escribir un solo LPARAM, EXCELtoPARAM valida todos los destinos.
+Si dos recetas producirían el mismo nombre (también considerando mayúsculas/minúsculas de Windows), se aborta toda la exportación y se muestran los orígenes en conflicto.
 
+VALIDACIONES
+------------
+Las validaciones se aplican a celdas modificadas, no a parámetros históricos sin tocar.
+Actualmente se comprueba:
+- tipos y límites definidos en methadata.xlsx cuando existan;
+- N004 (espesor) numérico y > 0 cuando se modifica;
+- N005 (potencia) numérico y no negativo cuando se modifica;
+- duty entre 0 y 100 cuando la metadata lo identifica.
 
-🛠 INFO
------------------------------
-# Diccionario de equivalencias:
-    material_map
-        "steel": "MILD STEEL",
-        "steel al carbono": "MILD STEEL",
-        "esteel al carbono-mix": "MILD STEEL",
-        "steel al carbono mix": "MILD STEEL",
-        "acero al carbono": "MILD STEEL",
-        "acero": "MILD STEEL",
-        "hierro": "MILD STEEL",
-        "galva": "GALVA",
-        "galvanizado": "GALVA",
-        "galvanized": "GALVA",
-        "inox": "STAINLESS STEEL",
-        "stainless": "STAINLESS STEEL",
-        "aluminio": "ALUMINIUM",
-        "aluminum": "ALUMINIUM"
-  
- # Validar columnas obligatorias:
-        "N000",  # Ruta
-        "N001",  # Nombre
-        "N002",  # Abreviado
-        "N003",  # DIN
-        "N004",  # Espesor
-        "N005",  # Potencia fuente láser
-        "N006",  # Longitud focal
-        "N026",  # Texto1
-        "N037",  #Tipo de gas
+Al finalizar se crea parametros_exportados/manifest.csv con el origen, destino y columnas modificadas.
 
-# Construcción del nombre del archivo de parámetros:
-    {material}-{tipo_de_gas}-{espesor}-{texto1}.lparam"
+METADATA
+--------
+La aplicación lee todas las hojas de modulos/methadata.xlsx. No depende de nombres de hoja fijos, por lo que "FOCALES" se procesa correctamente.
 
-❓ ¿PROBLEMAS?
--------------
-- ¿No se generan archivos? → Verifica que el Excel esté en "para_procesar".
-- ¿Nombres extraños? → Revisa las columnas N000 (ruta), N001 (Nombre) y N037 (Tipo de gas).
+COMPILACION EN WINDOWS
+----------------------
+Desde la carpeta Param_editor:
 
+  pyinstaller PARAMtoEXCEL.spec
+  pyinstaller EXCELtoPARAM.spec
 
-¡LISTO PARA USAR! 🚀
+Los .spec incluyen modulos/methadata.xlsx dentro del ejecutable.
+
+DEPENDENCIAS DE DESARROLLO
+--------------------------
+- Python 3.11+
+- openpyxl
+- pyinstaller (solo para generar los EXE)
+
+TESTS
+-----
+Desde Param_editor:
+
+  python -m unittest discover -s tests -v
+
+Los tests cubren round-trip exacto, edición de un único parámetro, R/S, parámetros repetidos, búsqueda recursiva de factory, validaciones, protección de rutas y colisiones.
